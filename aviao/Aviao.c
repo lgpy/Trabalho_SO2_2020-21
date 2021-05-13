@@ -31,7 +31,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	AviaoOriginator me;
 	DadosThread dados;
 	DadosHeartBeatThread dadosHB;
-	char comando[100];
+	TCHAR comando[100];
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);

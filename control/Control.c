@@ -4,8 +4,13 @@ void Handler(DadosThread* dados, CelulaBuffer* cel) {
 	int index;
 	WaitForSingleObject(dados->hMutex, INFINITE);
 	index = FindAviaobyPId(dados->Avioes, dados->nAvioes, cel->Originator.PId);
-	if (index == -1)
-		index = AddAviao(dados->Avioes, dados->nAvioes, &cel->Originator);
+	if (index == -1) {
+		index = AddAviao(dados->Avioes, dados->nAvioes, dados->MAX_AVIOES, &cel->Originator);
+		if (index == -1)
+		{
+			// cant add it maxed out
+		}
+	}
 	switch (cel->rType)
 	{
 		case REQ_HEARTBEAT:
@@ -42,7 +47,7 @@ DWORD WINAPI ThreadConsumidor(LPVOID param) {
 
 
 int _tmain(int argc, LPTSTR argv[]) {
-	char comando[100];
+	TCHAR comando[100];
 
 	HANDLE hFileMap, hThread; // change names
 	DadosThread dados; // change names

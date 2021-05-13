@@ -5,7 +5,7 @@ void error(const TCHAR* msg, int exit_code) {
 	exit(exit_code);
 }
 
-DWORD getRegVal(const char* ValueName, const int Default) {
+DWORD getRegVal(const TCHAR* ValueName, const int Default) {
 	HKEY key;
 	LSTATUS res;
 	DWORD type, value = 0, size = sizeof(value);
@@ -74,10 +74,34 @@ int FindAviaobyPId(Aviao* Avioes, int nAvioes, int PId) {
 	return -1;
 }
 
-int AddAviao(Aviao* Avioes, int nAvioes, AviaoOriginator* newAviao) {
-	Avioes[nAvioes].PId = newAviao->PId;
-	Avioes[nAvioes].Seats = newAviao->Seats;
-	Avioes[nAvioes].Speed = newAviao->Speed;
-	nAvioes++;
-	return nAvioes - 1;
+int FindAeroportobyName(Aeroporto* Aeroportos, int nAeroportos, TCHAR * name) {
+	int i;
+	for (i = 0; i < nAeroportos; i++)
+		if (_tcscmp(Aeroportos[i].Name, name) == 0)
+			return i;
+	return -1;
+}
+
+int AddAviao(Aviao* Avioes, int nAvioes, int Max_Avioes, AviaoOriginator* newAviao) {
+	if (nAvioes < Max_Avioes)
+	{
+		Avioes[nAvioes].PId = newAviao->PId;
+		Avioes[nAvioes].Seats = newAviao->Seats;
+		Avioes[nAvioes].Speed = newAviao->Speed;
+		nAvioes++;
+		return nAvioes - 1;
+	}
+	return -1;
+}
+
+int AddAeroporto(Aeroporto* Aeroportos, int nAeroportos, int Max_Aeroportos, TCHAR* name, Coords coords) {
+	if (nAeroportos < Max_Aeroportos)
+	{
+		Aeroportos[nAeroportos].Coord.x = coords.x;
+		Aeroportos[nAeroportos].Coord.y = coords.y;
+		memcpy(Aeroportos[nAeroportos].Name, name, _tcslen(name) * sizeof(TCHAR));
+		nAeroportos++;
+		return nAeroportos - 1;
+	}
+	return -1;
 }

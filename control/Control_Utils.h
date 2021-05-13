@@ -28,7 +28,7 @@ typedef struct {
 } Aviao;
 
 typedef struct {
-	char Name[30];
+	TCHAR Name[30];
 	Coords Coord;
 } Aeroporto;
 
@@ -46,7 +46,7 @@ typedef struct {
 } DadosThread;
 
 void error(const TCHAR* msg, int exit_code);
-DWORD getRegVal(const char* ValueName, const int Default);
+DWORD getRegVal(const TCHAR* ValueName, const int Default);
 void init_dados(HANDLE* hFileMap, DadosThread* dados);
 int FindAviaobyPId(Aviao* Avioes, int nAvioes, int PId);
-int AddAviao(Aviao* Avioes, int nAvioes, Aviao* newAviao);
+int AddAviao(Aviao* Avioes, int nAvioes, int Max_Avioes, AviaoOriginator* newAviao);

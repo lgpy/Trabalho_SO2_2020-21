@@ -25,7 +25,7 @@ typedef struct {
 	AviaoOriginator Originator;
 	int rType;
 	//Coords Coord;
-	char buffer[TAM_BUFFER];
+	TCHAR buffer[TAM_BUFFER];
 } CelulaBuffer;
 
 typedef struct {
