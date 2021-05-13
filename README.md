@@ -1,11 +1,14 @@
 # TODO
 ## control
 
-- [ ] use mutex for single instance
-- [ ] read registry for max aviao
-- [ ] start shared memory
+- [x] single instance
+- [x] start shared memory
+- [ ] shared memory thread doesnt stop because waiting for writes
+- [x] read registry for max avioes and max aeroportos
+- [x] set registry if not set
 
 ## aviao
 
-- [ ] DLL import
+- [x] DLL import
+- [ ] get seats and speed from console
 - [ ] open shared memory
