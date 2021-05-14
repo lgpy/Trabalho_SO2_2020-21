@@ -7,6 +7,7 @@
 #define TAM_CBUFFER 10
 #define TAM_BUFFER 50
 
+#define REQ_AIRPORT -1
 #define REQ_HEARTBEAT 0
 
 typedef struct {

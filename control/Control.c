@@ -2,7 +2,6 @@
 
 void Handler(DadosThread* dados, CelulaBuffer* cel) {
 	int index;
-	WaitForSingleObject(dados->hMutex, INFINITE);
 	index = FindAviaobyPId(dados->Avioes, dados->nAvioes, cel->Originator.PId);
 	if (index == -1) {
 		index = AddAviao(dados->Avioes, dados->nAvioes, dados->MAX_AVIOES, &cel->Originator);
@@ -16,10 +15,11 @@ void Handler(DadosThread* dados, CelulaBuffer* cel) {
 		case REQ_HEARTBEAT:
 			dados->Avioes[index].lastHB = time(NULL);
 			break;
+		case REQ_AIRPORT:
+			_tprintf(TEXT("'%s'\n"),cel->buffer);
 		default:
 			break;
 	}
-	ReleaseMutex(dados->hMutex);
 }
 
 DWORD WINAPI ThreadConsumidor(LPVOID param) {
@@ -33,13 +33,13 @@ DWORD WINAPI ThreadConsumidor(LPVOID param) {
 
 		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->pRead], sizeof(CelulaBuffer));
 		dados->memPar->pRead++;
-		if (dados->memPar->pRead == TAM_BUFFER)
+		if (dados->memPar->pRead == TAM_CBUFFER)
 			dados->memPar->pRead = 0;
 
+		Handler(dados, &cel);
 
 		ReleaseMutex(dados->hMutex);
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL); // Liberta um slot para Leitura
-		Handler(dados, &cel);
 	}
 
 	return 0;

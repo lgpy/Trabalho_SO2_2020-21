@@ -15,3 +15,4 @@
 
 #define ERR_CREATE_SEMAPHORE TEXT("Error while creating a semaphore.")
 #define ERR_CREATE_MUTEX TEXT("Error while creating a mutex.")
+#define ERR_CREATE_EVENT TEXT("Error while creating a event.")

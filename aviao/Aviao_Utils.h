@@ -9,7 +9,8 @@
 #include "err_str.h"
 #include "SO2_TP_DLL_2021.h"
 
-#define dadosMutex_NAME TEXT("dadosMutex")
+#define dadosMutex_NAME TEXT("AviaoDadosMutex")
+#define dadosEvent_PATTERN TEXT("AviaoDadosEvent-%d")
 
 typedef struct {
 	BufferCircular* memPar;
@@ -27,4 +28,9 @@ typedef struct {
 	HANDLE hMutex;
 	int terminar;
 	AviaoOriginator* me;
+	HANDLE hEvent;
+	CelulaBuffer cell;
 } DadosThread;
+
+void error(const TCHAR* msg, int exit_code);
+void init_dados(HANDLE* hFileMap, DadosThread* dados, DadosHeartBeatThread* dadosHB);
