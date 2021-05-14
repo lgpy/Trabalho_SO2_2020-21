@@ -24,7 +24,11 @@ typedef struct {
 	int Seats;
 	int Speed;
 	//Coords Coord;
-	time_t lastHB;
+	time_t lastHB; //last Heartbeat in UNIX time
+
+	HANDLE hFileMap;
+	HANDLE hEvent;
+	Response* memPar;
 } Aviao;
 
 typedef struct {
@@ -48,5 +52,8 @@ typedef struct {
 void error(const TCHAR* msg, int exit_code);
 DWORD getRegVal(const TCHAR* ValueName, const int Default);
 void init_dados(HANDLE* hFileMap, DadosThread* dados);
+void PrintMenu(Aviao* Avioes, const int nAvioes, Aeroporto* Aeroportos, const int nAeroportos);
 int FindAviaobyPId(Aviao* Avioes, int nAvioes, int PId);
+int FindAeroportobyName(Aeroporto* Aeroportos, int nAeroportos, TCHAR* name);
 int AddAviao(Aviao* Avioes, int nAvioes, int Max_Avioes, AviaoOriginator* newAviao);
+int AddAeroporto(Aeroporto* Aeroportos, int nAeroportos, int Max_Aeroportos, TCHAR* name, Coords coords);

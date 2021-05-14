@@ -83,11 +83,27 @@ int FindAeroportobyName(Aeroporto* Aeroportos, int nAeroportos, TCHAR * name) {
 }
 
 int AddAviao(Aviao* Avioes, int nAvioes, int Max_Avioes, AviaoOriginator* newAviao) {
+	TCHAR buffer[TAM_BUFFER];
 	if (nAvioes < Max_Avioes)
 	{
 		Avioes[nAvioes].PId = newAviao->PId;
 		Avioes[nAvioes].Seats = newAviao->Seats;
 		Avioes[nAvioes].Speed = newAviao->Speed;
+
+		_stprintf_s(buffer, TAM_BUFFER, AVIAO_FM_PATTERN, newAviao->PId);
+		Avioes[nAvioes].hFileMap = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, FileMap_NAME);
+		if (Avioes[nAvioes].hFileMap == NULL)
+			error(ERR_CONTROL_NOT_RUNNING, EXIT_FAILURE); //maybe not quit program?
+
+		Avioes[nAvioes].memPar = (BufferCircular*)MapViewOfFile(Avioes[nAvioes].hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+		if (Avioes[nAvioes].memPar == NULL)
+			error(ERR_MAP_VIEW_OF_FILE, EXIT_FAILURE); //maybe not quit program?
+
+		_stprintf_s(buffer, TAM_BUFFER, AVIAO_REvent_PATTERN, newAviao->PId);
+		Avioes[nAvioes].hEvent = OpenEvent(EVENT_MODIFY_STATE, FALSE, buffer);
+		if (Avioes[nAvioes].hEvent == NULL)
+			error(ERR_OPEN_EVENT, EXIT_FAILURE);
+
 		nAvioes++;
 		return nAvioes - 1;
 	}

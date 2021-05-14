@@ -10,27 +10,36 @@
 #include "SO2_TP_DLL_2021.h"
 
 #define dadosMutex_NAME TEXT("AviaoDadosMutex")
-#define dadosEvent_PATTERN TEXT("AviaoDadosEvent-%d")
+#define ProduceEvent_PATTERN TEXT("AviaoPEvent-%d")
+
+#define state_AEROPORTO 0
+#define state_EMVIAGEM 1
 
 typedef struct {
 	BufferCircular* memPar;
 	HANDLE hSemEscrita; // posições que estão vazias
 	HANDLE hSemLeitura; // posições para ser lidas
 	HANDLE hMutex;
-	int terminar;
 	AviaoOriginator* me;
-} DadosHeartBeatThread;
+	int terminar;
+} DadosHB;
 
 typedef struct {
 	BufferCircular* memPar;
 	HANDLE hSemEscrita; // posições que estão vazias
 	HANDLE hSemLeitura; // posições para ser lidas
 	HANDLE hMutex;
-	int terminar;
-	AviaoOriginator* me;
 	HANDLE hEvent;
+	AviaoOriginator* me;
 	CelulaBuffer cell;
-} DadosThread;
+	int terminar;
+} DadosP;
+
+typedef struct {
+	Response* memPar;
+	HANDLE hEvent;
+} DadosR;
 
 void error(const TCHAR* msg, int exit_code);
-void init_dados(HANDLE* hFileMap, DadosThread* dados, DadosHeartBeatThread* dadosHB);
+void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, DadosP* dadosP, DadosHB* dadosHB, DadosR* dadosR);
+void init(char* buffer, AviaoOriginator* me);

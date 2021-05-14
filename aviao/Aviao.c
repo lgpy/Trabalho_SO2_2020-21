@@ -1,7 +1,7 @@
 #include "Aviao_Utils.h"
 
-DWORD WINAPI ThreadHeartBeat(LPVOID param) {
-	DadosHeartBeatThread* dados = (DadosHeartBeatThread*)param;
+DWORD WINAPI ThreadHB(LPVOID param) {
+	DadosHB* dados = (DadosHB*)param;
 	CelulaBuffer cel; // remove buffer?
 	while (!dados->terminar)
 	{
@@ -25,8 +25,8 @@ DWORD WINAPI ThreadHeartBeat(LPVOID param) {
 	return 0;
 }
 
-DWORD WINAPI ThreadProdutor(LPVOID param) {
-	DadosThread* dados = (DadosThread*)param;
+DWORD WINAPI ThreadP(LPVOID param) {
+	DadosP* dados = (DadosP*)param;
 	while (!dados->terminar)
 	{
 		WaitForSingleObject(dados->hEvent, INFINITE); // change into mutex if includes coords
@@ -44,39 +44,48 @@ DWORD WINAPI ThreadProdutor(LPVOID param) {
 	}
 	return 0;
 }
+/*
+DWORD WINAPI ThreadRecieve(LPVOID param) {
+	DadosRThread* dados = (DadosRThread*)param;
+	while (!dados->terminar)
+	{
+		WaitForSingleObject(dados->hEvent, INFINITE);
+		WaitForSingleObject(dados->hMutex, INFINITE);
 
+		ReleaseMutex(dados->hMutex);
+	}
+	return 0;
+}*/
 
 int _tmain(int argc, LPTSTR argv[]) {
-	HANDLE hFileMap, hThread, hHBThread;
-
 	AviaoOriginator me;
-	DadosThread dados;
-	DadosHeartBeatThread dadosHB;
-	TCHAR comando[TAM_BUFFER];
+	HANDLE hFM_AC, hFM_CA, hPThread, hHBThread/*, hRThread*/;
+
+	DadosP dadosP;
+	DadosHB dadosHB;
+	DadosR dadosR;
+
+	TCHAR buffer[TAM_BUFFER];
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
 	_setmode(_fileno(stdout), _O_WTEXT);
 #endif
 
-	me.PId = GetCurrentProcessId();
-	_tprintf(TEXT("PID: %d\n"), me.PId);
-	me.Seats = 9999; //get from user
-	me.Speed = 10; //get from user
-	dados.me = &me; dadosHB.me = &me;
-	init_dados(&hFileMap, &dados, &dadosHB);
-	hThread = CreateThread(NULL, 0, ThreadProdutor, &dados, 0, NULL); // if (hHBThread == NULL)
+	
+	init(&buffer, &me);
+	dadosP.me = &me; dadosHB.me = &me;
+	init_dados(&hFM_AC, &hFM_CA, &dadosP, &dadosHB, &dadosR);
+	hPThread = CreateThread(NULL, 0, ThreadP, &dadosP, 0, NULL); // if (hHBThread == NULL)
 
-	//hHBThread = CreateThread(NULL, 0, ThreadHeartBeat, &dadosHB, 0, NULL); // if (hHBThread == NULL)
+	CopyMemory(dadosP.cell.buffer, buffer, sizeof(TCHAR) * _tcslen(buffer));
+	dadosP.cell.buffer[_tcslen(buffer) - 1] = '\0';
+	dadosP.cell.rType = REQ_AIRPORT; //REQ_NEW?
+	SetEvent(dadosP.hEvent);
 
-	_tprintf(TEXT("aeroporto: "));
-	_fgetts(comando, TAM_BUFFER, stdin);
-	CopyMemory(dados.cell.buffer, comando, sizeof(TCHAR) * _tcslen(comando));
-	dados.cell.buffer[_tcslen(comando) - 1] = '\0';
-	dados.cell.rType = REQ_AIRPORT;
-	SetEvent(dados.hEvent);
-
-	WaitForSingleObject(hThread, INFINITE);
-
+	_tprintf(TEXT("Waiting for response\n"));
+	WaitForSingleObject(dadosR.hEvent, INFINITE);
+	_tprintf(TEXT("Waiting for response\n"));
+	WaitForSingleObject(hPThread, INFINITE);
 	return EXIT_SUCCESS;
 }

@@ -1,7 +1,12 @@
 #include "Control_Utils.h"
 
 void Handler(DadosThread* dados, CelulaBuffer* cel) {
-	int index;
+	Response res;
+	int index, airportindex;
+	if (cel->Originator.PId < 5)
+	{
+		return;
+	}
 	index = FindAviaobyPId(dados->Avioes, dados->nAvioes, cel->Originator.PId);
 	if (index == -1) {
 		index = AddAviao(dados->Avioes, dados->nAvioes, dados->MAX_AVIOES, &cel->Originator);
@@ -16,7 +21,16 @@ void Handler(DadosThread* dados, CelulaBuffer* cel) {
 			dados->Avioes[index].lastHB = time(NULL);
 			break;
 		case REQ_AIRPORT:
-			_tprintf(TEXT("'%s'\n"),cel->buffer);
+			airportindex = FindAeroportobyName(dados->Aeroportos, dados->nAeroportos, cel->buffer);
+			if (airportindex == -1)
+				dados->Avioes[index].memPar->rType = RES_AIRPORT_NOTFOUND;
+			else
+				dados->Avioes[index].memPar->rType = RES_AIRPORT_FOUND;
+				dados->Avioes[index].memPar->Coord.x = dados->Aeroportos[index].Coord.x;
+				dados->Avioes[index].memPar->Coord.y = dados->Aeroportos[index].Coord.y;
+				
+				if (SetEvent(dados->Avioes[index].hEvent))
+					_tprintf(TEXT("sent response\n"));
 		default:
 			break;
 	}
@@ -67,14 +81,19 @@ int _tmain(int argc, LPTSTR argv[]) {
 	}
 	dados.nAeroportos = 0; dados.nAvioes = 0;
 
-	hThread = CreateThread(NULL, 0, ThreadConsumidor, &dados, 0, NULL);
-	if (hThread != NULL) {
-		_tprintf(TEXT("Escreva qualquer coisa para sair.\n"));
-		_getts_s(comando, 100);
-		dados.terminar = 1;
-		WaitForSingleObject(hThread, INFINITE);
-	}
+	hThread = CreateThread(NULL, 0, ThreadConsumidor, &dados, 0, NULL); // if (hThread == NULL)
 
+	CopyMemory(dados.Aeroportos[0].Name, TEXT("a1"), sizeof(TCHAR) * 3);
+	dados.Aeroportos[0].Coord.x = 50;
+	dados.Aeroportos[0].Coord.y = 50;
+	CopyMemory(dados.Aeroportos[1].Name, TEXT("a2"), sizeof(TCHAR) * 3);
+	dados.Aeroportos[1].Coord.x = 100;
+	dados.Aeroportos[1].Coord.y = 100;
+	dados.nAeroportos += 2;
+
+	PrintMenu(dados.Avioes, dados.nAvioes, dados.Aeroportos, dados.nAeroportos);
+
+	WaitForSingleObject(hThread, INFINITE);
 	free(dados.Avioes); free(dados.Aeroportos);
 	return EXIT_SUCCESS;
 }
