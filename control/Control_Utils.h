@@ -23,7 +23,7 @@ typedef struct {
 	DWORD PId;
 	int Seats;
 	int Speed;
-	//Coords Coord;
+	Coords Coord;
 	time_t lastHB; //last Heartbeat in UNIX time
 
 	HANDLE hFileMap;
@@ -53,7 +53,8 @@ void error(const TCHAR* msg, int exit_code);
 DWORD getRegVal(const TCHAR* ValueName, const int Default);
 void init_dados(HANDLE* hFileMap, DadosThread* dados);
 void PrintMenu(Aviao* Avioes, const int nAvioes, Aeroporto* Aeroportos, const int nAeroportos);
-int FindAviaobyPId(Aviao* Avioes, int nAvioes, int PId);
-int FindAeroportobyName(Aeroporto* Aeroportos, int nAeroportos, TCHAR* name);
-int AddAviao(Aviao* Avioes, int nAvioes, int Max_Avioes, AviaoOriginator* newAviao);
-int AddAeroporto(Aeroporto* Aeroportos, int nAeroportos, int Max_Aeroportos, TCHAR* name, Coords coords);
+void Handler(DadosThread* dados, CelulaBuffer* cel);
+int FindAviaobyPId(Aviao* Avioes, const int nAvioes, int PId);
+int FindAeroportobyName(Aeroporto* Aeroportos, const int nAeroportos, TCHAR* name);
+int AddAviao(Aviao* Avioes, int* nAvioes, const int Max_Avioes, AviaoOriginator* newAviao);
+int AddAeroporto(Aeroporto* Aeroportos, int* nAeroportos, const int Max_Aeroportos, TCHAR* name, Coords coords);

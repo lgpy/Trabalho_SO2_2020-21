@@ -16,4 +16,5 @@
 #define ERR_CREATE_SEMAPHORE TEXT("Error while creating a semaphore.")
 #define ERR_CREATE_MUTEX TEXT("Error while creating a mutex.")
 #define ERR_CREATE_EVENT TEXT("Error while creating a event.")
+#define ERR_CREATE_THREAD TEXT("Error while creating a thread.")
 #define ERR_OPEN_EVENT TEXT("Error while oppening a event.")
