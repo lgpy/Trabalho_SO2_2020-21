@@ -20,20 +20,11 @@ typedef struct {
 	HANDLE hSemEscrita; // posições que estão vazias
 	HANDLE hSemLeitura; // posições para ser lidas
 	HANDLE hMutex;
-	AviaoOriginator* me;
-	int terminar;
-} DadosHB;
-
-typedef struct {
-	BufferCircular* memPar;
-	HANDLE hSemEscrita; // posições que estão vazias
-	HANDLE hSemLeitura; // posições para ser lidas
-	HANDLE hMutex;
 	HANDLE hSemaphore;
 	AviaoOriginator* me;
 	CelulaBuffer cell;
 	int terminar;
-} DadosP;
+} Dados;
 
 typedef struct {
 	Response* memPar;
@@ -41,13 +32,13 @@ typedef struct {
 } DadosR;
 
 typedef struct {
-	DadosP * dadosP;
+	Dados * Dados;
 	DadosR * dadosR;
 	int terminar;
 } DadosV;
 
 void error(const TCHAR* msg, int exit_code);
-void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, DadosP* dadosP, DadosHB* dadosHB, DadosR* dadosR);
-void updatePos(DadosP* dadosP, DadosR* dadosR, AviaoOriginator* me, int x, int y);
-void requestPos(DadosP* dadosP, DadosR* dadosR);
+void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* Dados, DadosR* dadosR);
+void updatePos(Dados* Dados, DadosR* dadosR, AviaoOriginator* me, int x, int y);
+void requestPos(Dados* Dados, DadosR* dadosR);
 void init(TCHAR* buffer, AviaoOriginator* me);

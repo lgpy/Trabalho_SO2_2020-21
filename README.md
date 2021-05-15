@@ -9,11 +9,13 @@
 ## aviao
 
 - [x] DLL import
-- [ ] get seats, speed and initial airport from console
+- [x] get seats, speed and initial airport from console
 - [ ] shared memory thread doesnt stop because waiting for writes
 
 ## communication
-- [ ] get AirportCoords
+- [x] get Destination
+- [x] Update Location
+- [x] Detect HeartBeat
 
 
 ## ideas

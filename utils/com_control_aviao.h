@@ -13,6 +13,7 @@
 #define REQ_HEARTBEAT 2
 #define REQ_UPDATEPOS 3
 
+//#define RES_AIRPORT_AVIOES_FULL 0
 #define RES_AIRPORT_NOTFOUND 1
 #define RES_AIRPORT_FOUND 2
 #define RES_LOCATION_UPDATED 3
@@ -24,7 +25,6 @@ typedef struct {
 
 typedef struct {
 	int rType;
-	//DWORD PId;
 	Coords Coord;
 } Response;
 
@@ -40,13 +40,13 @@ typedef struct {
 typedef struct {
 	AviaoOriginator Originator;
 	int rType;
-	//Coords Coord;
 	TCHAR buffer[TAM_BUFFER];
 } CelulaBuffer;
 
 typedef struct {
 	int pWrite;
 	int pRead;
+	DWORD Map[1000][1000];
 	CelulaBuffer buffer[TAM_CBUFFER];
 } BufferCircular;
 

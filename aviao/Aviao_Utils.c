@@ -5,36 +5,32 @@ void error(const TCHAR* msg, int exit_code) {
 	exit(exit_code);
 }
 
-void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, DadosP* dadosP, DadosHB* dadosHB, DadosR* dadosR) {
+void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* Dados, DadosR* dadosR) {
 	TCHAR buffer[TAM_BUFFER];
 	// Map file - Aviao to Control
 	*hFM_AC = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FileMap_NAME); // Check if FileMapping already exists
 	if (*hFM_AC == NULL)
 		error(ERR_CONTROL_NOT_RUNNING, EXIT_FAILURE);
 
-	dadosP->memPar = (BufferCircular*)MapViewOfFile(*hFM_AC, FILE_MAP_ALL_ACCESS, 0, 0, 0);	dadosHB->hMutex = dadosP->memPar;
-	if (dadosP->memPar == NULL)
+	Dados->memPar = (BufferCircular*)MapViewOfFile(*hFM_AC, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	if (Dados->memPar == NULL)
 		error(ERR_MAP_VIEW_OF_FILE, EXIT_FAILURE);
 
 	// Sync stuff - Aviao to Control
-	dadosP->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SemEscrita_NAME);
-	dadosP->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SemLeitura_NAME);
-	dadosP->hMutex = CreateMutex(NULL, FALSE, dadosMutex_NAME);
-	_stprintf_s(buffer, TAM_BUFFER, ProduceSemaphore_PATTERN, dadosP->me->PId);
-	dadosP->hSemaphore = CreateSemaphore(NULL, 0, 1, buffer);
-	if (dadosP->hSemEscrita == NULL || dadosP->hSemLeitura == NULL || dadosP->hSemaphore == NULL)
+	Dados->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SemEscrita_NAME);
+	Dados->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SemLeitura_NAME);
+	Dados->hMutex = CreateMutex(NULL, FALSE, dadosMutex_NAME);
+	_stprintf_s(buffer, TAM_BUFFER, ProduceSemaphore_PATTERN, Dados->me->PId);
+	Dados->hSemaphore = CreateSemaphore(NULL, 0, 1, buffer);
+	if (Dados->hSemEscrita == NULL || Dados->hSemLeitura == NULL || Dados->hSemaphore == NULL)
 		error(ERR_CREATE_SEMAPHORE, EXIT_FAILURE);
-	if (dadosP->hMutex == NULL)
+	if (Dados->hMutex == NULL)
 		error(ERR_CREATE_MUTEX, EXIT_FAILURE);
 	
-	dadosP->terminar = 0;
-	dadosHB->terminar = 0;
-	dadosHB->hSemEscrita = dadosP->hSemEscrita;
-	dadosHB->hSemLeitura = dadosP->hSemLeitura;
-	dadosHB->hMutex = dadosP->hMutex;
+	Dados->terminar = 0;
 
 	// Map file - Control to Aviao
-	_stprintf_s(buffer, TAM_BUFFER, AVIAO_FM_PATTERN, dadosP->me->PId);
+	_stprintf_s(buffer, TAM_BUFFER, AVIAO_FM_PATTERN, Dados->me->PId);
 	*hFM_CA = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(Response), buffer);
 	if (*hFM_CA == NULL)
 		error(ERR_CREATE_FILE_MAPPING, EXIT_FAILURE);
@@ -46,25 +42,25 @@ void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, DadosP* dadosP, DadosHB* dadosHB
 	dadosR->memPar->rType = -1;
 
 	// Sync stuff - Control to Aviao
-	_stprintf_s(buffer, TAM_BUFFER, AVIAO_REvent_PATTERN, dadosP->me->PId);
+	_stprintf_s(buffer, TAM_BUFFER, AVIAO_REvent_PATTERN, Dados->me->PId);
 	dadosR->hEvent = CreateEvent(NULL, FALSE, FALSE, buffer); //change to auto reset?
 	if (dadosR->hEvent == NULL)
 		error(ERR_CREATE_EVENT, EXIT_FAILURE);
 }
 
-void updatePos(DadosP* dadosP, DadosR* dadosR, AviaoOriginator * me, int x, int y) {
-	dadosP->cell.rType = REQ_UPDATEPOS;
+void updatePos(Dados* Dados, DadosR* dadosR, AviaoOriginator * me, int x, int y) {
+	Dados->cell.rType = REQ_UPDATEPOS;
 	me->Coord.x = x;
 	me->Coord.y = y;
-	ReleaseSemaphore(dadosP->hSemaphore, 1, NULL);
+	ReleaseSemaphore(Dados->hSemaphore, 1, NULL);
 }
 
-void requestPos(DadosP* dadosP, DadosR* dadosR) {
+void requestPos(Dados* Dados, DadosR* dadosR) {
 	_tprintf(TEXT("Nome do Aeroporto: "));
-	_fgetts(dadosP->cell.buffer, TAM_BUFFER, stdin);
-	dadosP->cell.buffer[_tcslen(dadosP->cell.buffer) - 1] = '\0';
-	dadosP->cell.rType = REQ_AIRPORT; //REQ_NEW?
-	ReleaseSemaphore(dadosP->hSemaphore, 1, NULL);
+	_fgetts(Dados->cell.buffer, TAM_BUFFER, stdin);
+	Dados->cell.buffer[_tcslen(Dados->cell.buffer) - 1] = '\0';
+	Dados->cell.rType = REQ_AIRPORT; //REQ_NEW?
+	ReleaseSemaphore(Dados->hSemaphore, 1, NULL);
 	WaitForSingleObject(dadosR->hEvent, INFINITE);
 }
 

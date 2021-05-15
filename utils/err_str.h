@@ -2,6 +2,7 @@
 
 #define ERR_CONTROL_ALREADY_RUNNING TEXT("Another control is already in execution.")
 #define ERR_CONTROL_NOT_RUNNING TEXT("Control is not in execution.")
+#define ERR_CONTROL_FULL TEXT("Control is full.")
 
 #define ERR_INSUFFICIENT_MEMORY TEXT("Insufficient memory available.")
 
@@ -18,3 +19,6 @@
 #define ERR_CREATE_EVENT TEXT("Error while creating a event.")
 #define ERR_CREATE_THREAD TEXT("Error while creating a thread.")
 #define ERR_OPEN_EVENT TEXT("Error while oppening a event.")
+
+
+

@@ -21,9 +21,13 @@
 
 typedef struct {
 	DWORD PId;
+
 	int Seats;
 	int Speed;
+
 	Coords Coord;
+	Coords Dest;
+
 	time_t lastHB; //last Heartbeat in UNIX time
 
 	HANDLE hFileMap;
@@ -42,19 +46,22 @@ typedef struct {
 	HANDLE hSemLeitura; // posições para ser lidas
 	HANDLE hMutex;
 	int terminar;
+	int aceitarAvioes;
 
 	Aviao* Avioes;
 	Aeroporto* Aeroportos;
 	int nAvioes, nAeroportos;
 	int MAX_AVIOES, MAX_AEROPORTOS;
-} DadosThread;
+} Dados;
 
 void error(const TCHAR* msg, int exit_code);
 DWORD getRegVal(const TCHAR* ValueName, const int Default);
-void init_dados(HANDLE* hFileMap, DadosThread* dados);
-void PrintMenu(Aviao* Avioes, const int nAvioes, Aeroporto* Aeroportos, const int nAeroportos);
-void Handler(DadosThread* dados, CelulaBuffer* cel);
-int FindAviaobyPId(Aviao* Avioes, const int nAvioes, int PId);
-int FindAeroportobyName(Aeroporto* Aeroportos, const int nAeroportos, TCHAR* name);
-int AddAviao(Aviao* Avioes, int* nAvioes, const int Max_Avioes, AviaoOriginator* newAviao);
-int AddAeroporto(Aeroporto* Aeroportos, int* nAeroportos, const int Max_Aeroportos, TCHAR* name, Coords coords);
+void init_dados(Dados* dados, HANDLE* hFileMap);
+void PrintMenu(Dados* dados);
+void Handler(Dados* dados, CelulaBuffer* cel);
+int FindAviaobyPId(Dados* dados, DWORD PId);
+int FindAeroportobyName(Dados* dados, TCHAR* name);
+int AeroportoisIsolated(Dados* dados, Coords coords);
+int AddAviao(Dados* dados, AviaoOriginator* newAviao);
+int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
+int RemoveAviao(Dados* dados, int index);

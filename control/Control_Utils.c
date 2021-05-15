@@ -32,7 +32,29 @@ DWORD getRegVal(const TCHAR* ValueName, const int Default) {
 	return value;
 }
 
-void init_dados(HANDLE* hFileMap, DadosThread* dados) {
+void init_dados(Dados* dados, HANDLE* hFileMap) {
+	int i, x;
+	// Get/Set Registry keys
+	dados->MAX_AVIOES = getRegVal(REG_MAX_AVIOES_KEY_NAME, 10);
+	dados->MAX_AEROPORTOS = getRegVal(REG_MAX_AEROPORTOS_KEY_NAME, 5);
+
+	// Allocate memory for MAX vals
+	dados->Avioes = malloc(sizeof(Aviao) * dados->MAX_AVIOES);
+	dados->Aeroportos = malloc(sizeof(Aeroporto) * dados->MAX_AEROPORTOS);
+	if (dados->Avioes == NULL || dados->Aeroportos == NULL) {
+		error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
+	}
+
+	dados->nAeroportos = 0;
+	dados->nAvioes = 0;
+	dados->aceitarAvioes = TRUE;
+
+	// Mutex for Dados struct
+	dados->hMutex = CreateMutex(NULL, FALSE, ControlMutex_NAME);
+	if (dados->hMutex == NULL)
+		error(ERR_CREATE_MUTEX, EXIT_FAILURE);
+
+	// FileMap for Consumidor-Produtor
 	*hFileMap = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, FileMap_NAME); // Check if FileMapping already exists
 	if (*hFileMap != NULL)
 		error(ERR_CONTROL_ALREADY_RUNNING, EXIT_FAILURE);
@@ -45,43 +67,47 @@ void init_dados(HANDLE* hFileMap, DadosThread* dados) {
 	if (dados->memPar == NULL)
 		error(ERR_MAP_VIEW_OF_FILE, EXIT_FAILURE);
 
+	// Semaphores for Consumidor-Produtor
 	dados->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SemEscrita_NAME);
 	dados->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SemLeitura_NAME);
-	dados->hMutex = CreateMutex(NULL, FALSE, ControlMutex_NAME);
 	if (dados->hSemEscrita == NULL || dados->hSemLeitura == NULL)
 		error(ERR_CREATE_SEMAPHORE, EXIT_FAILURE);
-	if (dados->hMutex == NULL)
-		error(ERR_CREATE_MUTEX, EXIT_FAILURE);
+
+	for (i = 0; i < 1000; i++)
+		for (x = 0; x < 1000; x++)
+			dados->memPar->Map[i][x] = NULL;
 
 	dados->memPar->pRead = 0;
 	dados->memPar->pWrite = 0;
 	dados->terminar = 0;
 }
 
-void PrintMenu(Aviao* Avioes, const int nAvioes, Aeroporto* Aeroportos, const int nAeroportos) { // Need Mutex
+void PrintMenu(Dados* dados) { // Need Mutex
 	int i;
 	_tprintf(TEXT("Avioes\n"));
-	for (i = 0; i < nAvioes; i++)
-		_tprintf(TEXT("\t%5lu: %3d %3d | %2d/s | %3d seats\n"), Avioes[i].PId, Avioes[i].Coord.x, Avioes[i].Coord.y, Avioes[i].Speed, Avioes[i].Seats);
+	WaitForSingleObject(dados->hMutex, INFINITE);
+	for (i = 0; i < dados->nAvioes; i++)
+		_tprintf(TEXT("\t%5lu: %3d, %3d | %3d, %3d | %2d/s | %3d seats\n"), dados->Avioes[i].PId, dados->Avioes[i].Coord.x, dados->Avioes[i].Coord.y, dados->Avioes[i].Dest.x, dados->Avioes[i].Dest.y, dados->Avioes[i].Speed, dados->Avioes[i].Seats);
 
 	_tprintf(TEXT("\nAeroportos\n"));
-	for (i = 0; i < nAeroportos; i++)
-		_tprintf(TEXT("\t%5s: %3d, %3d\n"), Aeroportos[i].Name, Aeroportos[i].Coord.x, Aeroportos[i].Coord.y);
+	for (i = 0; i < dados->nAeroportos; i++)
+		_tprintf(TEXT("\t%5s: %3d, %3d\n"), dados->Aeroportos[i].Name, dados->Aeroportos[i].Coord.x, dados->Aeroportos[i].Coord.y);
+	ReleaseMutex(dados->hMutex);
 }
 
-void Handler(DadosThread* dados, CelulaBuffer* cel) {
+void Handler(Dados* dados, CelulaBuffer* cel) {
 	Response res;
 	int index, airportindex;
 	if (cel->Originator.PId < 5)
 	{
 		return;
 	}
-	index = FindAviaobyPId(dados->Avioes, dados->nAvioes, cel->Originator.PId);
+	index = FindAviaobyPId(dados, cel->Originator.PId);
 	if (index == -1) {
-		index = AddAviao(dados->Avioes, &dados->nAvioes, dados->MAX_AVIOES, &cel->Originator);
+		index = AddAviao(dados, &cel->Originator);
 		if (index == -1)
 		{
-			// cant add it maxed out
+			return;
 		}
 	}
 	switch (cel->rType)
@@ -90,7 +116,7 @@ void Handler(DadosThread* dados, CelulaBuffer* cel) {
 		dados->Avioes[index].lastHB = time(NULL);
 		break;
 	case REQ_AIRPORT:
-		airportindex = FindAeroportobyName(dados->Aeroportos, dados->nAeroportos, cel->buffer);
+		airportindex = FindAeroportobyName(dados, cel->buffer);
 		if (airportindex == -1) {
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_NOTFOUND;
 		}
@@ -98,6 +124,8 @@ void Handler(DadosThread* dados, CelulaBuffer* cel) {
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_FOUND;
 			dados->Avioes[index].memPar->Coord.x = dados->Aeroportos[airportindex].Coord.x;
 			dados->Avioes[index].memPar->Coord.y = dados->Aeroportos[airportindex].Coord.y;
+			dados->Avioes[index].Dest.x = dados->Aeroportos[airportindex].Coord.y;
+			dados->Avioes[index].Dest.y = dados->Aeroportos[airportindex].Coord.x;
 		}
 		if (SetEvent(dados->Avioes[index].hEvent) != 0)
 			_tprintf(TEXT("sent response to %d\n"), dados->Avioes[index].PId);
@@ -106,65 +134,107 @@ void Handler(DadosThread* dados, CelulaBuffer* cel) {
 		dados->Avioes[index].memPar->rType = RES_LOCATION_UPDATED;
 		dados->Avioes[index].Coord.x = cel->Originator.Coord.x;
 		dados->Avioes[index].Coord.y = cel->Originator.Coord.y;
-		PrintMenu(dados->Avioes, dados->nAvioes, dados->Aeroportos, dados->nAeroportos); //move to looping thread w/1sec sleep ?
 		break;
 	default:
 		break;
 	}
 }
 
-int FindAviaobyPId(Aviao* Avioes, const int nAvioes, int PId) {
+int FindAviaobyPId(Dados* dados, DWORD PId) {
 	int i;
-	for (i = 0; i < nAvioes; i++)
-		if (Avioes[i].PId == PId)
+	for (i = 0; i < dados->nAvioes; i++)
+		if (dados->Avioes[i].PId == PId) {
 			return i;
+		}
 	return -1;
 }
 
-int FindAeroportobyName(Aeroporto* Aeroportos, const int nAeroportos, TCHAR * name) {
+int FindAeroportobyName(Dados* dados, TCHAR * name) {
 	int i;
-	for (i = 0; i < nAeroportos; i++)
-		if (_tcscmp(Aeroportos[i].Name, name) == 0)
+	for (i = 0; i < dados->nAeroportos; i++)
+		if (_tcscmp(dados->Aeroportos[i].Name, name) == 0) {
+			ReleaseMutex(dados->hMutex);
 			return i;
+		}
 	return -1;
 }
 
-int AddAviao(Aviao* Avioes, int * nAvioes, const int Max_Avioes, AviaoOriginator* newAviao) {
-	TCHAR buffer[TAM_BUFFER];
-	if (*nAvioes < Max_Avioes)
+int AeroportoisIsolated(Dados* dados, Coords coords) {
+	const int lx = coords.x - 10,
+			ly = coords.y - 10,
+			hx = coords.x + 10,
+			hy = coords.y + 10;
+	int i;
+	Aeroporto* aeroporto;
+	for (i = 0; i < dados->nAeroportos; i++)
 	{
-		Avioes[*nAvioes].PId = newAviao->PId;
-		Avioes[*nAvioes].Seats = newAviao->Seats;
-		Avioes[*nAvioes].Speed = newAviao->Speed;
-		Avioes[*nAvioes].Coord.x = -1;
-		Avioes[*nAvioes].Coord.x = -1;
+		aeroporto = &dados->Aeroportos[i];
+		if (aeroporto->Coord.x >= lx && aeroporto->Coord.x <= hx && aeroporto->Coord.y >= ly && aeroporto->Coord.y <= hy)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
+	TCHAR buffer[TAM_BUFFER];
+	if (dados->nAvioes < dados->MAX_AVIOES && dados->aceitarAvioes == TRUE)
+	{
+		dados->Avioes[dados->nAvioes].PId = newAviao->PId;
+		dados->Avioes[dados->nAvioes].Seats = newAviao->Seats;
+		dados->Avioes[dados->nAvioes].Speed = newAviao->Speed;
+		dados->Avioes[dados->nAvioes].Dest.x = newAviao->Dest.x;
+		dados->Avioes[dados->nAvioes].Dest.y = newAviao->Dest.y;
+		dados->Avioes[dados->nAvioes].Coord.x = -1;
+		dados->Avioes[dados->nAvioes].Coord.x = -1;
 
 		_stprintf_s(buffer, TAM_BUFFER, AVIAO_FM_PATTERN, newAviao->PId);
-		Avioes[*nAvioes].hFileMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, buffer);
-		if (Avioes[*nAvioes].hFileMap == NULL)
+		dados->Avioes[dados->nAvioes].hFileMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, buffer);
+		if (dados->Avioes[dados->nAvioes].hFileMap == NULL)
 			error(ERR_CONTROL_NOT_RUNNING, EXIT_FAILURE); //maybe not quit program?
 
-		Avioes[*nAvioes].memPar = (Response*)MapViewOfFile(Avioes[*nAvioes].hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-		if (Avioes[*nAvioes].memPar == NULL)
+		dados->Avioes[dados->nAvioes].memPar = (Response*)MapViewOfFile(dados->Avioes[dados->nAvioes].hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+		if (dados->Avioes[dados->nAvioes].memPar == NULL)
 			error(ERR_MAP_VIEW_OF_FILE, EXIT_FAILURE); //maybe not quit program?
 
 		_stprintf_s(buffer, TAM_BUFFER, AVIAO_REvent_PATTERN, newAviao->PId);
-		Avioes[*nAvioes].hEvent = OpenEvent(EVENT_MODIFY_STATE, FALSE, buffer);
-		if (Avioes[*nAvioes].hEvent == NULL)
+		dados->Avioes[dados->nAvioes].hEvent = OpenEvent(EVENT_MODIFY_STATE, FALSE, buffer);
+		if (dados->Avioes[dados->nAvioes].hEvent == NULL)
 			error(ERR_OPEN_EVENT, EXIT_FAILURE);
 
-		return (*nAvioes)++;
+		return dados->nAvioes++;
 	}
 	return -1;
 }
 
-int AddAeroporto(Aeroporto* Aeroportos, int * nAeroportos, const int Max_Aeroportos, TCHAR* name, Coords coords) {
-	if (nAeroportos < Max_Aeroportos)
+int AddAeroporto(Dados* dados, Aeroporto * newAeroporto) {
+	int index;
+	if (newAeroporto->Coord.x > 999 || newAeroporto->Coord.y > 999 || newAeroporto->Coord.x < 0 || newAeroporto->Coord.y < 0)
+		return -1;
+	WaitForSingleObject(dados->hMutex, INFINITE);
+	if (dados->nAeroportos < dados->MAX_AEROPORTOS)
 	{
-		Aeroportos[*nAeroportos].Coord.x = coords.x;
-		Aeroportos[*nAeroportos].Coord.y = coords.y;
-		memcpy(Aeroportos[*nAeroportos].Name, name, _tcslen(name) * sizeof(TCHAR));
-		return (*nAeroportos)++;
+		index = FindAeroportobyName(dados, newAeroporto->Name);
+		if (index != -1) {
+			ReleaseMutex(dados->hMutex);
+			return -1;
+		}
+		if (!AeroportoisIsolated(dados, newAeroporto->Coord)) {
+			ReleaseMutex(dados->hMutex);
+			return -1;
+		}
+		dados->Aeroportos[dados->nAeroportos].Coord.x = newAeroporto->Coord.x;
+		dados->Aeroportos[dados->nAeroportos].Coord.y = newAeroporto->Coord.y;
+		_tcscpy_s(dados->Aeroportos[dados->nAeroportos].Name, _countof(dados->Aeroportos[dados->nAeroportos].Name), newAeroporto->Name);
+		ReleaseMutex(dados->hMutex);
+		return dados->nAeroportos++;
 	}
+	ReleaseMutex(dados->hMutex);
 	return -1;
+}
+
+int RemoveAviao(Dados* dados, int index) {
+	int i;
+	for (i = index; i < dados->nAvioes-1; i++)
+		dados->Avioes[i] = dados->Avioes[i + 1];
+	dados->nAvioes--;
 }
