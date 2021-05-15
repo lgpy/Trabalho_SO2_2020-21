@@ -96,7 +96,6 @@ void PrintMenu(Dados* dados) { // Need Mutex
 }
 
 void Handler(Dados* dados, CelulaBuffer* cel) {
-	Response res;
 	int index, airportindex;
 	if (cel->Originator.PId < 5)
 	{
@@ -124,17 +123,19 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_FOUND;
 			dados->Avioes[index].memPar->Coord.x = dados->Aeroportos[airportindex].Coord.x;
 			dados->Avioes[index].memPar->Coord.y = dados->Aeroportos[airportindex].Coord.y;
-			dados->Avioes[index].Dest.x = dados->Aeroportos[airportindex].Coord.y;
-			dados->Avioes[index].Dest.y = dados->Aeroportos[airportindex].Coord.x;
 		}
-		if (SetEvent(dados->Avioes[index].hEvent) != 0)
-			_tprintf(TEXT("sent response to %d\n"), dados->Avioes[index].PId);
+		SetEvent(dados->Avioes[index].hEvent);
 		break;
 	case REQ_UPDATEPOS:
-		dados->Avioes[index].memPar->rType = RES_LOCATION_UPDATED;
 		dados->Avioes[index].Coord.x = cel->Originator.Coord.x;
 		dados->Avioes[index].Coord.y = cel->Originator.Coord.y;
 		break;
+	case REQ_UPDATEDES:
+		dados->Avioes[index].Dest.x = cel->Originator.Dest.x;
+		dados->Avioes[index].Dest.y = cel->Originator.Dest.y;
+		break;
+	case REQ_REACHEDDES:
+		_tprintf(TEXT("%lu reached its destination\n"), dados->Avioes[index].PId);
 	default:
 		break;
 	}
@@ -182,8 +183,8 @@ int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
 		dados->Avioes[dados->nAvioes].PId = newAviao->PId;
 		dados->Avioes[dados->nAvioes].Seats = newAviao->Seats;
 		dados->Avioes[dados->nAvioes].Speed = newAviao->Speed;
-		dados->Avioes[dados->nAvioes].Dest.x = newAviao->Dest.x;
-		dados->Avioes[dados->nAvioes].Dest.y = newAviao->Dest.y;
+		dados->Avioes[dados->nAvioes].Dest.x = -1;
+		dados->Avioes[dados->nAvioes].Dest.y = -1;
 		dados->Avioes[dados->nAvioes].Coord.x = -1;
 		dados->Avioes[dados->nAvioes].Coord.x = -1;
 
@@ -233,8 +234,11 @@ int AddAeroporto(Dados* dados, Aeroporto * newAeroporto) {
 }
 
 int RemoveAviao(Dados* dados, int index) {
-	int i;
-	for (i = index; i < dados->nAvioes-1; i++)
+	int i = index;
+	CloseHandle(dados->Avioes[i].hEvent);
+	UnmapViewOfFile(dados->Avioes[i].memPar);
+	CloseHandle(dados->Avioes[i].hFileMap);
+	for (i; i < dados->nAvioes-1; i++)
 		dados->Avioes[i] = dados->Avioes[i + 1];
 	dados->nAvioes--;
 }

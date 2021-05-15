@@ -62,11 +62,13 @@ DWORD WINAPI ThreadV(LPVOID param) {
 				_tprintf(TEXT("Erro no movimento\n"));
 		}
 		_tprintf(TEXT("Posicao: %d %d\n"), dados->Dados->me->Coord.x, dados->Dados->me->Coord.y);
-		updatePos(dados->Dados, dados->dadosR, dados->Dados->me, dados->Dados->me->Coord.x, dados->Dados->me->Coord.y);
+		updatePos(dados->Dados, dados->Dados->me->Coord.x, dados->Dados->me->Coord.y);
 		ReleaseMutex(dados->Dados->hMutex);
 		Sleep(1000);
 	}
 	dados->Dados->me->State = STATE_AEROPORTO;
+	dados->Dados->cell.rType = REQ_REACHEDDES;
+	ReleaseSemaphore(dados->Dados->hSemaphore, 1, NULL);
 	return 0;
 }
 
@@ -102,9 +104,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 		requestPos(&dados, &dadosR);
 	} while (dadosR.memPar->rType != RES_AIRPORT_FOUND);
 
-	me.Dest.x = dadosR.memPar->Coord.x;
-	me.Dest.y = dadosR.memPar->Coord.y;
-	updatePos(&dados, &dadosR, &me, dadosR.memPar->Coord.x, dadosR.memPar->Coord.y);
+	updatePos(&dados, dadosR.memPar->Coord.x, dadosR.memPar->Coord.y);
 
 	me.State = STATE_AEROPORTO;
 
@@ -117,6 +117,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 		if (me.State == STATE_AEROPORTO)
 		{
 			opt = -1;
+			_tprintf(TEXT("\nPID: %lu\n"), me.PId);
 			_tprintf(TEXT("No Aeroporto\n"));
 			_tprintf(TEXT("\t1: Escolher destino\n"));
 			_tprintf(TEXT("\t2: Embarcar passageiros\n"));
@@ -132,8 +133,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 					requestPos(&dados, &dadosR);
 					if (dadosR.memPar->rType == RES_AIRPORT_FOUND)
 					{
-						me.Dest.x = dadosR.memPar->Coord.x;
-						me.Dest.y = dadosR.memPar->Coord.y;
+						updateDes(&dados, dadosR.memPar->Coord.x, dadosR.memPar->Coord.y);
 						_tprintf(TEXT("Novo destino: %d %d\n"), me.Dest.x, me.Dest.y);
 					}
 					else {

@@ -38,7 +38,8 @@ typedef struct {
 } DadosV;
 
 void error(const TCHAR* msg, int exit_code);
-void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* Dados, DadosR* dadosR);
-void updatePos(Dados* Dados, DadosR* dadosR, AviaoOriginator* me, int x, int y);
-void requestPos(Dados* Dados, DadosR* dadosR);
+void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* dados, DadosR* dadosR);
+void updatePos(Dados* dados, int x, int y);
+void updateDes(Dados* dados, int x, int y);
+void requestPos(Dados* dados, DadosR* dadosR);
 void init(TCHAR* buffer, AviaoOriginator* me);

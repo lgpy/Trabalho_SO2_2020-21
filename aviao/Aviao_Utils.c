@@ -5,32 +5,32 @@ void error(const TCHAR* msg, int exit_code) {
 	exit(exit_code);
 }
 
-void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* Dados, DadosR* dadosR) {
+void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* dados, DadosR* dadosR) {
 	TCHAR buffer[TAM_BUFFER];
 	// Map file - Aviao to Control
 	*hFM_AC = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FileMap_NAME); // Check if FileMapping already exists
 	if (*hFM_AC == NULL)
 		error(ERR_CONTROL_NOT_RUNNING, EXIT_FAILURE);
 
-	Dados->memPar = (BufferCircular*)MapViewOfFile(*hFM_AC, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-	if (Dados->memPar == NULL)
+	dados->memPar = (BufferCircular*)MapViewOfFile(*hFM_AC, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	if (dados->memPar == NULL)
 		error(ERR_MAP_VIEW_OF_FILE, EXIT_FAILURE);
 
 	// Sync stuff - Aviao to Control
-	Dados->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SemEscrita_NAME);
-	Dados->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SemLeitura_NAME);
-	Dados->hMutex = CreateMutex(NULL, FALSE, dadosMutex_NAME);
-	_stprintf_s(buffer, TAM_BUFFER, ProduceSemaphore_PATTERN, Dados->me->PId);
-	Dados->hSemaphore = CreateSemaphore(NULL, 0, 1, buffer);
-	if (Dados->hSemEscrita == NULL || Dados->hSemLeitura == NULL || Dados->hSemaphore == NULL)
+	dados->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SemEscrita_NAME);
+	dados->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SemLeitura_NAME);
+	dados->hMutex = CreateMutex(NULL, FALSE, dadosMutex_NAME);
+	_stprintf_s(buffer, TAM_BUFFER, ProduceSemaphore_PATTERN, dados->me->PId);
+	dados->hSemaphore = CreateSemaphore(NULL, 0, 1, buffer);
+	if (dados->hSemEscrita == NULL || dados->hSemLeitura == NULL || dados->hSemaphore == NULL)
 		error(ERR_CREATE_SEMAPHORE, EXIT_FAILURE);
-	if (Dados->hMutex == NULL)
+	if (dados->hMutex == NULL)
 		error(ERR_CREATE_MUTEX, EXIT_FAILURE);
 	
-	Dados->terminar = 0;
+	dados->terminar = 0;
 
 	// Map file - Control to Aviao
-	_stprintf_s(buffer, TAM_BUFFER, AVIAO_FM_PATTERN, Dados->me->PId);
+	_stprintf_s(buffer, TAM_BUFFER, AVIAO_FM_PATTERN, dados->me->PId);
 	*hFM_CA = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(Response), buffer);
 	if (*hFM_CA == NULL)
 		error(ERR_CREATE_FILE_MAPPING, EXIT_FAILURE);
@@ -42,25 +42,32 @@ void init_dados(HANDLE* hFM_AC, HANDLE* hFM_CA, Dados* Dados, DadosR* dadosR) {
 	dadosR->memPar->rType = -1;
 
 	// Sync stuff - Control to Aviao
-	_stprintf_s(buffer, TAM_BUFFER, AVIAO_REvent_PATTERN, Dados->me->PId);
+	_stprintf_s(buffer, TAM_BUFFER, AVIAO_REvent_PATTERN, dados->me->PId);
 	dadosR->hEvent = CreateEvent(NULL, FALSE, FALSE, buffer); //change to auto reset?
 	if (dadosR->hEvent == NULL)
 		error(ERR_CREATE_EVENT, EXIT_FAILURE);
 }
 
-void updatePos(Dados* Dados, DadosR* dadosR, AviaoOriginator * me, int x, int y) {
-	Dados->cell.rType = REQ_UPDATEPOS;
-	me->Coord.x = x;
-	me->Coord.y = y;
-	ReleaseSemaphore(Dados->hSemaphore, 1, NULL);
+void updatePos(Dados* dados, int x, int y) {
+	dados->cell.rType = REQ_UPDATEPOS;
+	dados->me->Coord.x = x;
+	dados->me->Coord.y = y;
+	ReleaseSemaphore(dados->hSemaphore, 1, NULL);
 }
 
-void requestPos(Dados* Dados, DadosR* dadosR) {
+void updateDes(Dados* dados, int x, int y) {
+	dados->cell.rType = REQ_UPDATEDES;
+	dados->me->Dest.x = x;
+	dados->me->Dest.y = y;
+	ReleaseSemaphore(dados->hSemaphore, 1, NULL);
+}
+
+void requestPos(Dados* dados, DadosR* dadosR) {
 	_tprintf(TEXT("Nome do Aeroporto: "));
-	_fgetts(Dados->cell.buffer, TAM_BUFFER, stdin);
-	Dados->cell.buffer[_tcslen(Dados->cell.buffer) - 1] = '\0';
-	Dados->cell.rType = REQ_AIRPORT; //REQ_NEW?
-	ReleaseSemaphore(Dados->hSemaphore, 1, NULL);
+	_fgetts(dados->cell.buffer, TAM_BUFFER, stdin);
+	dados->cell.buffer[_tcslen(dados->cell.buffer) - 1] = '\0';
+	dados->cell.rType = REQ_AIRPORT; //REQ_NEW?
+	ReleaseSemaphore(dados->hSemaphore, 1, NULL);
 	WaitForSingleObject(dadosR->hEvent, INFINITE);
 }
 
@@ -68,7 +75,6 @@ void requestPos(Dados* Dados, DadosR* dadosR) {
 
 void init(TCHAR* buffer, AviaoOriginator* me) {
 	me->PId = GetCurrentProcessId();
-	_tprintf(TEXT("PID: %lu\n"), me->PId);
 
 #ifndef DEBUG
 	_tprintf(TEXT("Seats: "));

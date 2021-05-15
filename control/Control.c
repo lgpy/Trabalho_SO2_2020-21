@@ -37,7 +37,7 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 		{
 			if (difftime(timenow,dados->Avioes[i].lastHB) > 3)
 			{
-				_tprintf(TEXT("%lu heartbeat has stopped\n"), dados->Avioes[i].PId); //remove it close stuff
+				_tprintf(TEXT("%lu's heartbeat has stopped\n"), dados->Avioes[i].PId);
 				RemoveAviao(dados, i);
 			}
 		}
