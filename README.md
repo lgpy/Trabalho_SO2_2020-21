@@ -11,8 +11,8 @@
 
 - [x] DLL import
 - [x] get seats, speed and initial airport from console
-- [ ] Se a posição estiver ocupada, o avião deverá lidar com a situação de forma coerente (desvio/caminho alternativo, aguardar, outra estratégia).
-- [x] Quando chega a um novo aeroporto, deve comunicar a sua chegada ao controlador aéreo
+- [ ] Se a posiÃ§Ã£o estiver ocupada, o aviÃ£o deverÃ¡ lidar com a situaÃ§Ã£o de forma coerente (desvio/caminho alternativo, aguardar, outra estratÃ©gia).
+- [x] Quando chega a um novo aeroporto, deve comunicar a sua chegada ao controlador aÃ©reo
 - [x] Better Var management and mutexes
 
 ## communication
@@ -23,16 +23,16 @@
 
 
 ## ideas
+```
+Problema da posiÃ§Ã£o:
+   0 1
+0 |o| |
+1 | |o| 
 
-Problema da posição:
-	   0 1
-	0 |o| |
-	1 | |o| 
- 
-	0,0 quer mover-se para o 1,1
-	1,1 quer mover-se para o 0,0
+0,0 quer mover-se para o 1,1
+1,1 quer mover-se para o 0,0
 
-	possibilidades:
+possibilidades:
 	0,0 ->	0,1 ->  1,1
 			1,1 ->	0,0
 
@@ -44,10 +44,10 @@ Problema da posição:
 
 	1,1 ->	1,0 ->  1,1
 			0,0 ->	1,1
+```
 
 
-
-thread do aviao é controlada por um evento no main()
+thread do aviao Ã© controlada por um evento no main()
 eg: obter coords ao inicio, aciona-se o evento e a thread envia quando terminar acabar o evento.
 
 aviao gera um mapa com nome "mapa-" + PId
