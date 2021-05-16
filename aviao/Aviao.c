@@ -193,7 +193,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 		{
 			opt = -1;
 			_tprintf(TEXT("\nPID: %lu\n"), dados.me.PId);
-			_tprintf(TEXT("Posicao: %d %d\n"), dados.me.Coord.x, dados.me.Coord.x);
+			_tprintf(TEXT("Posicao: %d %d\n"), dados.me.Coord.x, dados.me.Coord.y);
 			_tprintf(TEXT("\t1: Escolher destino\n"));
 			_tprintf(TEXT("\t2: Embarcar passageiros\n"));
 			_tprintf(TEXT("\t3: Iniciar viagem\n"));
