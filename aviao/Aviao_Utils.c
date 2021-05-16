@@ -5,7 +5,7 @@ void error(const TCHAR* msg, int exit_code) {
 	exit(exit_code);
 }
 
-void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV) {
+void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV, DadosR* dadosR) {
 	TCHAR buffer[TAM_BUFFER];
 	// Map file - Aviao to Control
 	dados->filemaps.hFM_AC = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FileMap_NAME); // Check if FileMapping exists
@@ -32,6 +32,8 @@ void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV) {
 	// Synchronization - Semaphores
 	_stprintf_s(buffer, TAM_BUFFER, SemaphoreProduce_PATTERN, dados->me.PId);
 	dados->semaphores.hSemaphoreProduce = CreateSemaphore(NULL, 0, 1, buffer);
+	_stprintf_s(buffer, TAM_BUFFER, SemaphoreReceive_PATTERN, dados->me.PId);
+	dados->semaphores.hSemaphoreReceive = CreateSemaphore(NULL, 0, 1, buffer);
 	dados->semaphores.hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SemEscrita_NAME);
 	dados->semaphores.hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SemLeitura_NAME);
 	if (dados->semaphores.hSemEscrita == NULL || dados->semaphores.hSemLeitura == NULL || dados->semaphores.hSemaphoreProduce == NULL)
@@ -73,9 +75,14 @@ void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV) {
 	dadosV->rType = &dadosP->rType;
 	dadosV->hSemaphoreProduce = &dados->semaphores.hSemaphoreProduce;
 
+	dadosR->hEvent_CA = &dados->events.hEvent_CA; // not shared
+	dadosR->hSemaphoreReceive = &dados->semaphores.hSemaphoreReceive;
+	dadosR->MemPar_CA = dados->sharedmem.MemPar_CA;
+
 	//other
 	dadosHB->terminar = 0;
 	dadosP->terminar = 0;
+	dadosR->terminar = 0;
 }
 
 
@@ -112,7 +119,6 @@ void requestPos(DadosP* dados, HANDLE* hEvent_CA) {
 	_fgetts(dados->buffer, TAM_BUFFER, stdin);
 	dados->buffer[_tcslen(dados->buffer) - 1] = '\0';
 	ReleaseSemaphore(*dados->hSemaphoreProduce, 1, NULL);
-	WaitForSingleObject(*hEvent_CA, INFINITE);
 }
 
 #define DEBUG

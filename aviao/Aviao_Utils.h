@@ -14,6 +14,7 @@
 #define MutexMe_PATTERN TEXT("MutexMe-%lu")
 
 #define SemaphoreProduce_PATTERN TEXT("AviaoPSemaphore-%lu")
+#define SemaphoreReceive_PATTERN TEXT("AviaoRSemaphore-%lu")
 
 #define STATE_AEROPORTO 0
 #define STATE_VIAGEM 1
@@ -39,6 +40,7 @@ typedef struct {
 	HANDLE hSemEscrita; // shared
 	HANDLE hSemLeitura; // shared
 	HANDLE hSemaphoreProduce; // not shared
+	HANDLE hSemaphoreReceive; // not shared
 } Semaphores;
 
 typedef struct {
@@ -49,6 +51,7 @@ typedef struct {
 	HANDLE hPThread;
 	HANDLE hHBThread;
 	HANDLE hVThread;
+	HANDLE hRThread;
 } Threads;
 
 typedef struct {
@@ -109,9 +112,16 @@ typedef struct {
 	HANDLE* hSemaphoreProduce;
 } DadosV;
 
+typedef struct {
+	HANDLE* hEvent_CA; // not shared
+	HANDLE* hSemaphoreReceive;
+	Response* MemPar_CA;
+	int terminar;
+} DadosR;
+
 
 void error(const TCHAR* msg, int exit_code);
-void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV); 
+void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV, DadosR* dadosR);
 void updatePos(DadosP* dados, int x, int y);
 void updatePosV(DadosV* dados, int x, int y);
 void updateDes(DadosP* dados, int x, int y);

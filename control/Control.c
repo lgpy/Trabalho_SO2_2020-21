@@ -48,7 +48,7 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 
 
 int _tmain(int argc, LPTSTR argv[]) {
-	int opt;
+	int opt, i;
 	TCHAR buffer[TAM_BUFFER];
 	Aeroporto newAeroporto;
 
@@ -121,7 +121,13 @@ int _tmain(int argc, LPTSTR argv[]) {
 				dados.aceitarAvioes = TRUE;
 			break;
 		case 4:
-			_tprintf(TEXT("not implemented\n"));
+			WaitForSingleObject(dados.hMutexAvioes, INFINITE);
+			for (i = 0; i < dados.nAvioes; i++)
+			{
+				dados.Avioes[i].memPar->rType = RES_CONTROL_SHUTDOWN;
+				SetEvent(dados.Avioes[i].hEvent);
+			}
+			exit(EXIT_SUCCESS);
 			break;
 		default:
 			break;

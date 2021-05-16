@@ -5,13 +5,14 @@
 - [x] read registry for max avioes and max aeroportos
 - [x] set registry if not set
 - [x] Better Var management and mutexes
-- [ ] Encerrar e avisar tudo
+- [x] Encerrar
+- [ ] avisar tudo que o control encerrou em vez de exit();
 
 ## aviao
 
 - [x] DLL import
 - [x] get seats, speed and initial airport from console
-- [ ] Se a posição estiver ocupada, o avião deverá lidar com a situação de forma coerente (desvio/caminho alternativo, aguardar, outra estratégia).
+- [x] Se a posição estiver ocupada, o avião deverá lidar com a situação de forma coerente (desvio/caminho alternativo, aguardar, outra estratégia).
 - [x] Quando chega a um novo aeroporto, deve comunicar a sua chegada ao controlador aéreo
 - [x] Better Var management and mutexes
 

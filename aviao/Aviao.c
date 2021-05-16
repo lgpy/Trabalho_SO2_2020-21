@@ -67,28 +67,77 @@ DWORD WINAPI ThreadV(LPVOID param) {
 		{
 			WaitForSingleObject(*dados->hMutexMapa, INFINITE);
 			res = move(dados->me->Coord.x, dados->me->Coord.y, dados->me->Dest.x, dados->me->Dest.y, &newC.x, &newC.y);
-			//dados->memPar->Map
 			if (res == 0)
 			{
-				ReleaseMutex(*dados->hMutexMapa);
+				dados->Map[dados->me->Dest.x][dados->me->Dest.y] = NULL;
+				if (dados->me->Coord.x != dados->me->Dest.x || dados->me->Coord.y != dados->me->Dest.y)
+				{
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = NULL;
+					dados->me->Coord.x = newC.x;
+					dados->me->Coord.y = newC.y;
+					ReleaseMutex(*dados->hMutexMapa);
+					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+					_tprintf(TEXT("Posicao: %d %d\n"), dados->me->Coord.x, dados->me->Coord.y);
+				}
 				break;
 			}
 			if (res == 1) {
-				count++;
-				dados->me->Coord.x = newC.x;
-				dados->me->Coord.y = newC.y; 
+				if (dados->Map[newC.x][newC.y] == NULL)
+				{
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = NULL;
+					dados->me->Coord.x = newC.x;
+					dados->me->Coord.y = newC.y;
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = dados->me->PId;
+					ReleaseMutex(*dados->hMutexMapa);
+					count++;
+					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+				}
+				else if (dados->Map[dados->me->Coord.x][newC.y] == NULL)
+				{
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = NULL;
+					dados->me->Coord.x = dados->me->Coord.x;
+					dados->me->Coord.y = newC.y;
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = dados->me->PId;
+					ReleaseMutex(*dados->hMutexMapa);
+					count++;
+					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+				}
+				else if (dados->Map[newC.x][dados->me->Coord.y] == NULL)
+				{
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = NULL;
+					dados->me->Coord.x = newC.x;
+					dados->me->Coord.y = dados->me->Coord.y;
+					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = dados->me->PId;
+					ReleaseMutex(*dados->hMutexMapa);
+					count++;
+					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+				}
+				else {
+					ReleaseMutex(*dados->hMutexMapa);
+				}
 				_tprintf(TEXT("Posicao: %d %d\n"), dados->me->Coord.x, dados->me->Coord.y);
-				updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
 			}
-			else if (res == 2)
+			else if (res == 2) {
+				ReleaseMutex(*dados->hMutexMapa);
 				_tprintf(TEXT("Erro no movimento\n"));
-
-			ReleaseMutex(*dados->hMutexMapa); // TBD
+			}
 		}
 		ReleaseMutex(*dados->hMutexMe);
 		Sleep(1000);
 	} while (res != 0);
 	dados->me->State = STATE_AEROPORTO;
+	return 0;
+}
+
+DWORD WINAPI ThreadR(LPVOID param) {
+	DadosR* dados = (DadosR*)param;
+	while (!dados->terminar)
+	{
+		WaitForSingleObject(*dados->hEvent_CA, INFINITE);
+		if (dados->MemPar_CA->rType == RES_CONTROL_SHUTDOWN)
+			exit(EXIT_SUCCESS);
+		ReleaseSemaphore(*dados->hSemaphoreReceive, 1, NULL);
+	}
 	return 0;
 }
 
@@ -99,6 +148,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	DadosHB dadosHB;
 	DadosP dadosP;
 	DadosV dadosV;
+	DadosR dadosR;
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
@@ -107,7 +157,10 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	
 	init(buffer, &dados.me);
-	init_dados(&dados, &dadosHB, &dadosP, &dadosV);
+	init_dados(&dados, &dadosHB, &dadosP, &dadosV, &dadosR);
+	dados.threads.hRThread = CreateThread(NULL, 0, ThreadR, &dadosR, 0, NULL);
+	if (dados.threads.hRThread == NULL)
+		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 	dados.threads.hPThread = CreateThread(NULL, 0, ThreadP, &dadosP, 0, NULL);
 	if (dados.threads.hPThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
@@ -115,6 +168,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	do
 	{
 		requestPos(&dadosP, &dados.events.hEvent_CA);
+		WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
 	} while (dados.sharedmem.MemPar_CA->rType != RES_AIRPORT_FOUND);
 
 	updatePos(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
@@ -143,6 +197,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 			{
 				case 1:
 					requestPos(&dadosP, &dados.events.hEvent_CA);
+					WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
 					if (dados.sharedmem.MemPar_CA->rType == RES_AIRPORT_FOUND)
 					{
 						updateDes(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
