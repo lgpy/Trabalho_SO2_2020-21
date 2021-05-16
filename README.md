@@ -6,7 +6,7 @@
 - [x] set registry if not set
 - [x] Better Var management and mutexes
 - [x] Encerrar
-- [ ] avisar tudo que o control encerrou em vez de exit();
+- [x] avisar tudo que o control encerrou em vez de exit();
 
 ## aviao
 

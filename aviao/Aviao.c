@@ -4,7 +4,7 @@ DWORD WINAPI ThreadHB(LPVOID param) {
 	DadosHB* dados = (DadosHB*)param;
 	CelulaBuffer cel; // remove buffer?
 	cel.rType = REQ_HEARTBEAT;
-	while (!dados->terminar)
+	while (!(*dados->terminar))
 	{
 		WaitForSingleObject(*dados->hSemEscrita, INFINITE); // Espera para poder ocupar um slot para Escrita
 
@@ -30,7 +30,7 @@ DWORD WINAPI ThreadHB(LPVOID param) {
 DWORD WINAPI ThreadP(LPVOID param) {
 	DadosP* dados = (DadosP*)param; // incluir uma cell nos dados desta thread
 	CelulaBuffer cel;
-	while (!dados->terminar)
+	while (!(*dados->terminar))
 	{
 		WaitForSingleObject(*dados->hSemaphoreProduce, INFINITE); // change into mutex if includes coords
 		WaitForSingleObject(*dados->hSemEscrita, INFINITE); // Espera para poder ocupar um slot para Escrita
@@ -63,7 +63,7 @@ DWORD WINAPI ThreadV(LPVOID param) {
 		count = 0;
 
 		WaitForSingleObject(*dados->hMutexMe, INFINITE);
-		while (count < dados->me->Speed)
+		while (count < dados->me->Speed && !(*dados->terminar))
 		{
 			WaitForSingleObject(*dados->hMutexMapa, INFINITE);
 			res = move(dados->me->Coord.x, dados->me->Coord.y, dados->me->Dest.x, dados->me->Dest.y, &newC.x, &newC.y);
@@ -124,18 +124,20 @@ DWORD WINAPI ThreadV(LPVOID param) {
 		}
 		ReleaseMutex(*dados->hMutexMe);
 		Sleep(1000);
-	} while (res != 0);
+	} while (res != 0 && !(*dados->terminar));
 	dados->me->State = STATE_AEROPORTO;
 	return 0;
 }
 
 DWORD WINAPI ThreadR(LPVOID param) {
 	DadosR* dados = (DadosR*)param;
-	while (!dados->terminar)
+	while (!(*dados->terminar))
 	{
 		WaitForSingleObject(*dados->hEvent_CA, INFINITE);
-		if (dados->MemPar_CA->rType == RES_CONTROL_SHUTDOWN)
-			exit(EXIT_SUCCESS);
+		if (dados->MemPar_CA->rType == RES_CONTROL_SHUTDOWN) {
+			_tprintf(TEXT("Control has Shutdown\n"));
+			*dados->terminar = 1;
+		}
 		ReleaseSemaphore(*dados->hSemaphoreReceive, 1, NULL);
 	}
 	return 0;
@@ -192,6 +194,8 @@ int _tmain(int argc, LPTSTR argv[]) {
 			{
 				_fgetts(buffer, TAM_BUFFER, stdin);
 				opt = _tstoi(buffer);
+				if (dados.terminar)
+					return EXIT_SUCCESS;
 			} while (!(opt <= 3 && opt >= 1));
 			switch (opt)
 			{

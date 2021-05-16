@@ -80,9 +80,11 @@ void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV, D
 	dadosR->MemPar_CA = dados->sharedmem.MemPar_CA;
 
 	//other
-	dadosHB->terminar = 0;
-	dadosP->terminar = 0;
-	dadosR->terminar = 0;
+	dados->terminar = 0;
+	dadosHB->terminar = &dados->terminar;
+	dadosP->terminar = &dados->terminar;
+	dadosR->terminar = &dados->terminar;
+	dadosV->terminar = &dados->terminar;
 }
 
 

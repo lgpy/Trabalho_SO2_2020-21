@@ -62,6 +62,7 @@ typedef struct {
 	SharedMemory sharedmem;
 	Threads threads;
 	AviaoOriginator me;
+	int terminar;
 } Data;
 
 /*
@@ -84,7 +85,7 @@ typedef struct {
 	HANDLE* hSemLeitura; // shared
 	HANDLE* hMutexMempar; // shared
 	HANDLE* hMutexMe; // not shared
-	int terminar;
+	int* terminar;
 } DadosHB;
 
 typedef struct {
@@ -99,7 +100,7 @@ typedef struct {
 	HANDLE* hSemLeitura; // shared
 	HANDLE* hMutexMempar; // shared
 	HANDLE* hMutexMe; // not shared
-	int terminar;
+	int* terminar;
 } DadosP;
 
 typedef struct {
@@ -110,13 +111,15 @@ typedef struct {
 
 	int * rType;
 	HANDLE* hSemaphoreProduce;
+
+	int* terminar;
 } DadosV;
 
 typedef struct {
 	HANDLE* hEvent_CA; // not shared
 	HANDLE* hSemaphoreReceive;
 	Response* MemPar_CA;
-	int terminar;
+	int* terminar;
 } DadosR;
 
 
