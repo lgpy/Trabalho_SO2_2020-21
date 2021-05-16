@@ -62,6 +62,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	init_dados(&dados, &hFileMap);
 
+#ifdef DEBUG
 	newAeroporto.Coord.x = 50;
 	newAeroporto.Coord.y = 50;
 	CopyMemory(newAeroporto.Name, TEXT("a1"), 3 * sizeof(TCHAR));
@@ -70,6 +71,8 @@ int _tmain(int argc, LPTSTR argv[]) {
 	newAeroporto.Coord.y = 100;
 	CopyMemory(newAeroporto.Name, TEXT("a2"), 3 * sizeof(TCHAR));
 	AddAeroporto(&dados, &newAeroporto);
+#endif // DEBUG
+	
 
 	hThread = CreateThread(NULL, 0, ThreadConsumidor, &dados, 0, NULL);
 	if (hThread == NULL)

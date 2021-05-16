@@ -19,6 +19,7 @@
 #define STATE_AEROPORTO 0
 #define STATE_VIAGEM 1
 
+//#define DEBUG
 
 typedef struct {
 	BufferCircular* MemPar_AC; // shared
@@ -65,18 +66,6 @@ typedef struct {
 	int terminar;
 } Data;
 
-/*
-typedef struct {
-	Response* memPar;
-	HANDLE hEvent;
-} DadosR;
-
-typedef struct {
-	Dados* dados;
-	DadosR* dadosR;
-	HANDLE hMutexMapa;
-	int terminar;
-};*/
 
 typedef struct {
 	BufferCircular* memPar;

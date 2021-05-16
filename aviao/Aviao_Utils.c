@@ -123,8 +123,6 @@ void requestPos(DadosP* dados, HANDLE* hEvent_CA) {
 	ReleaseSemaphore(*dados->hSemaphoreProduce, 1, NULL);
 }
 
-#define DEBUG
-
 void init(TCHAR* buffer, AviaoOriginator* me) {
 	me->PId = GetCurrentProcessId();
 

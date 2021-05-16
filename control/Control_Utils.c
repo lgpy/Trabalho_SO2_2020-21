@@ -114,8 +114,10 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 			if (index == -1)
 			{
 				index = AddAviao(dados, &cel->Originator);
-				if (index == -1)
-					return; // failed to add probably max
+				if (index == -1) {
+					ReleaseMutex(dados->hMutexAvioes);
+					return;
+				}
 			}
 			if (airportindex == -1) {
 				dados->Avioes[index].memPar->rType = RES_AIRPORT_NOTFOUND;
@@ -177,10 +179,10 @@ int FindAeroportobyName(Dados* dados, TCHAR * name) {
 }
 
 int AeroportoisIsolated(Dados* dados, Coords coords) {
-	const int lx = coords.x - 10,
-			ly = coords.y - 10,
-			hx = coords.x + 10,
-			hy = coords.y + 10;
+	const int lx = coords.x - 9,
+			ly = coords.y - 9,
+			hx = coords.x + 9,
+			hy = coords.y + 9;
 	int i;
 	Aeroporto* aeroporto;
 	for (i = 0; i < dados->nAeroportos; i++)

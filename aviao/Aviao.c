@@ -144,7 +144,9 @@ DWORD WINAPI ThreadR(LPVOID param) {
 }
 
 int _tmain(int argc, LPTSTR argv[]) {
+	DWORD res;
 	int opt;
+
 	TCHAR buffer[TAM_BUFFER];
 	Data dados;
 	DadosHB dadosHB;
@@ -170,7 +172,9 @@ int _tmain(int argc, LPTSTR argv[]) {
 	do
 	{
 		requestPos(&dadosP, &dados.events.hEvent_CA);
-		WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
+		res = WaitForSingleObject(dados.semaphores.hSemaphoreReceive, 5000);
+		if (res == WAIT_TIMEOUT)
+			_tprintf(TEXT("Connection timed out.\n"));
 	} while (dados.sharedmem.MemPar_CA->rType != RES_AIRPORT_FOUND);
 
 	updatePos(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
