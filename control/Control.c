@@ -9,7 +9,6 @@ DWORD WINAPI ThreadConsumidor(LPVOID param) {
 	while (!dados->terminar)
 	{
 		WaitForSingleObject(dados->hSemLeitura, INFINITE); // Espera para poder ocupar um slot para Escrita
-		WaitForSingleObject(dados->hMutex, INFINITE);
 
 		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->pRead], sizeof(CelulaBuffer));
 		dados->memPar->pRead++;
@@ -18,7 +17,6 @@ DWORD WINAPI ThreadConsumidor(LPVOID param) {
 
 		Handler(dados, &cel);
 
-		ReleaseMutex(dados->hMutex);
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL); // Liberta um slot para Leitura
 	}
 
@@ -31,8 +29,8 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 	time_t timenow;
 	while (!dados->terminar)
 	{
-		WaitForSingleObject(dados->hMutex, INFINITE);
 		timenow = time(NULL);
+		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		for (i = 0; i < dados->nAvioes; i++)
 		{
 			if (difftime(timenow,dados->Avioes[i].lastHB) > 3)
@@ -41,8 +39,8 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 				RemoveAviao(dados, i);
 			}
 		}
-		ReleaseMutex(dados->hMutex);
-		Sleep(2000);
+		ReleaseMutex(dados->hMutexAvioes);
+		Sleep(1000);
 	}
 
 	return 0;

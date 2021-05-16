@@ -12,7 +12,8 @@
 #define DEFAULT_MAX_AVIOES 10
 #define DEFAULT_MAX_AEROPORTOS 5
 
-#define ControlMutex_NAME TEXT("ControlMutex")
+#define MutexAvioes_NAME TEXT("MutexAvioes")
+#define MutexAeroportos_NAME TEXT("MutexAeroportos")
 
 #define REG_KEY_PATH TEXT("SOFTWARE\\TPSO2")
 #define REG_MAX_AVIOES_KEY_NAME TEXT("MAX_AVIOES")
@@ -44,12 +45,14 @@ typedef struct {
 	BufferCircular* memPar;
 	HANDLE hSemEscrita; // posições que estão vazias
 	HANDLE hSemLeitura; // posições para ser lidas
-	HANDLE hMutex;
+
 	int terminar;
 	int aceitarAvioes;
 
 	Aviao* Avioes;
+	HANDLE hMutexAvioes;
 	Aeroporto* Aeroportos;
+	HANDLE hMutexAeroportos;
 	int nAvioes, nAeroportos;
 	int MAX_AVIOES, MAX_AEROPORTOS;
 } Dados;
@@ -64,4 +67,4 @@ int FindAeroportobyName(Dados* dados, TCHAR* name);
 int AeroportoisIsolated(Dados* dados, Coords coords);
 int AddAviao(Dados* dados, AviaoOriginator* newAviao);
 int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
-int RemoveAviao(Dados* dados, int index);
+void RemoveAviao(Dados* dados, int index);

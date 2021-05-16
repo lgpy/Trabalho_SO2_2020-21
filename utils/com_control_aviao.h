@@ -3,8 +3,8 @@
 #define FileMap_NAME TEXT("ControlFM")
 #define SemEscrita_NAME TEXT("SemEscrita")
 #define SemLeitura_NAME TEXT("SemLeitura")
-#define AVIAO_FM_PATTERN TEXT("AviaoFM-%lu")
-#define AVIAO_REvent_PATTERN TEXT("AviaoPEvent-%lu")
+#define FileMapCA_PATTERN TEXT("AviaoFM-%lu")
+#define Event_CA_PATTERN TEXT("AviaoPEvent-%lu")
 
 #define TAM_CBUFFER 10
 #define TAM_BUFFER 50

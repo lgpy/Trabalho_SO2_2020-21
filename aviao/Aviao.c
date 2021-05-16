@@ -1,22 +1,26 @@
 #include "Aviao_Utils.h"
 
 DWORD WINAPI ThreadHB(LPVOID param) {
-	Dados* dados = (Dados*)param;
+	DadosHB* dados = (DadosHB*)param;
 	CelulaBuffer cel; // remove buffer?
 	cel.rType = REQ_HEARTBEAT;
 	while (!dados->terminar)
 	{
-		WaitForSingleObject(dados->hSemEscrita, INFINITE); // Espera para poder ocupar um slot para Escrita
-		WaitForSingleObject(dados->hMutex, INFINITE);
+		WaitForSingleObject(*dados->hSemEscrita, INFINITE); // Espera para poder ocupar um slot para Escrita
 
+		WaitForSingleObject(*dados->hMutexMe, INFINITE);
 		CopyMemory(&cel.Originator, dados->me, sizeof(AviaoOriginator));
+		ReleaseMutex(*dados->hMutexMe);
+
+		WaitForSingleObject(*dados->hMutexMempar, INFINITE);
+
 		CopyMemory(&dados->memPar->buffer[dados->memPar->pWrite], &cel, sizeof(CelulaBuffer));
 		dados->memPar->pWrite++;
 		if (dados->memPar->pWrite == TAM_CBUFFER)
 			dados->memPar->pWrite = 0;
 
-		ReleaseMutex(dados->hMutex);
-		ReleaseSemaphore(dados->hSemLeitura, 1, NULL); // Liberta um slot para Leitura
+		ReleaseMutex(*dados->hMutexMempar);
+		ReleaseSemaphore(*dados->hSemLeitura, 1, NULL); // Liberta um slot para Leitura
 
 		Sleep(1000);
 	}
@@ -24,67 +28,77 @@ DWORD WINAPI ThreadHB(LPVOID param) {
 }
 
 DWORD WINAPI ThreadP(LPVOID param) {
-	Dados* dados = (Dados*)param;
+	DadosP* dados = (DadosP*)param; // incluir uma cell nos dados desta thread
+	CelulaBuffer cel;
 	while (!dados->terminar)
 	{
-		WaitForSingleObject(dados->hSemaphore, INFINITE); // change into mutex if includes coords
-		WaitForSingleObject(dados->hSemEscrita, INFINITE); // Espera para poder ocupar um slot para Escrita
-		WaitForSingleObject(dados->hMutex, INFINITE);
+		WaitForSingleObject(*dados->hSemaphoreProduce, INFINITE); // change into mutex if includes coords
+		WaitForSingleObject(*dados->hSemEscrita, INFINITE); // Espera para poder ocupar um slot para Escrita
 
-		memcpy(&dados->cell.Originator, dados->me, sizeof(AviaoOriginator));
-		CopyMemory(&dados->memPar->buffer[dados->memPar->pWrite], &dados->cell, sizeof(CelulaBuffer));
+		cel.rType = dados->rType;
+		CopyMemory(cel.buffer, dados->buffer, sizeof(dados->buffer)); //maybe doesnt work
+		WaitForSingleObject(*dados->hMutexMe, INFINITE);
+		CopyMemory(&cel.Originator, dados->me, sizeof(AviaoOriginator));
+		ReleaseMutex(*dados->hMutexMe);
+
+		WaitForSingleObject(*dados->hMutexMempar, INFINITE);
+
+		CopyMemory(&dados->memPar->buffer[dados->memPar->pWrite], &cel, sizeof(CelulaBuffer));
 		dados->memPar->pWrite++;
 		if (dados->memPar->pWrite == TAM_CBUFFER)
 			dados->memPar->pWrite = 0;
 
-		ReleaseMutex(dados->hMutex);
-		ReleaseSemaphore(dados->hSemLeitura, 1, NULL); // Liberta um slot para Leitura
+		ReleaseMutex(*dados->hMutexMempar);
+		ReleaseSemaphore(*dados->hSemLeitura, 1, NULL); // Liberta um slot para Leitura
 	}
 	return 0;
 }
 
 DWORD WINAPI ThreadV(LPVOID param) {
-	int count, res = -1;
+	int count, res;
 	DadosV* dados = (DadosV*)param;
-	while (res != 0)
+	Coords newC;
+	do
 	{
 		count = 0;
-		WaitForSingleObject(dados->Dados->hMutex, INFINITE);
 
-		while (count < dados->Dados->me->Speed)
+		WaitForSingleObject(*dados->hMutexMe, INFINITE);
+		while (count < dados->me->Speed)
 		{
-			res = move(dados->Dados->me->Coord.x, dados->Dados->me->Coord.y, dados->Dados->me->Dest.x, dados->Dados->me->Dest.y, &dados->Dados->me->Coord.x, &dados->Dados->me->Coord.y);
+			WaitForSingleObject(*dados->hMutexMapa, INFINITE);
+			res = move(dados->me->Coord.x, dados->me->Coord.y, dados->me->Dest.x, dados->me->Dest.y, &newC.x, &newC.y);
+			//dados->memPar->Map
 			if (res == 0)
+			{
+				ReleaseMutex(*dados->hMutexMapa);
 				break;
-			else if (res == 1)
+			}
+			if (res == 1) {
 				count++;
+				dados->me->Coord.x = newC.x;
+				dados->me->Coord.y = newC.y; 
+				_tprintf(TEXT("Posicao: %d %d\n"), dados->me->Coord.x, dados->me->Coord.y);
+				updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+			}
 			else if (res == 2)
 				_tprintf(TEXT("Erro no movimento\n"));
+
+			ReleaseMutex(*dados->hMutexMapa); // TBD
 		}
-		_tprintf(TEXT("Posicao: %d %d\n"), dados->Dados->me->Coord.x, dados->Dados->me->Coord.y);
-		updatePos(dados->Dados, dados->Dados->me->Coord.x, dados->Dados->me->Coord.y);
-		ReleaseMutex(dados->Dados->hMutex);
+		ReleaseMutex(*dados->hMutexMe);
 		Sleep(1000);
-	}
-	dados->Dados->me->State = STATE_AEROPORTO;
-	dados->Dados->cell.rType = REQ_REACHEDDES;
-	ReleaseSemaphore(dados->Dados->hSemaphore, 1, NULL);
+	} while (res != 0);
+	dados->me->State = STATE_AEROPORTO;
 	return 0;
 }
 
 int _tmain(int argc, LPTSTR argv[]) {
 	int opt;
 	TCHAR buffer[TAM_BUFFER];
-
-	AviaoOriginator me;
-	HANDLE hFM_AC, hFM_CA, hPThread, hHBThread, hVThread;
-
-	Dados dados;
-	DadosR dadosR;
+	Data dados;
+	DadosHB dadosHB;
+	DadosP dadosP;
 	DadosV dadosV;
-	dadosV.Dados = &dados;
-	dadosV.dadosR = &dadosR;
-
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
@@ -92,32 +106,30 @@ int _tmain(int argc, LPTSTR argv[]) {
 #endif
 
 	
-	init(buffer, &me);
-	dados.me = &me;
-	init_dados(&hFM_AC, &hFM_CA, &dados, &dadosR);
-	hPThread = CreateThread(NULL, 0, ThreadP, &dados, 0, NULL);
-	if (hPThread == NULL)
+	init(buffer, &dados.me);
+	init_dados(&dados, &dadosHB, &dadosP, &dadosV);
+	dados.threads.hPThread = CreateThread(NULL, 0, ThreadP, &dadosP, 0, NULL);
+	if (dados.threads.hPThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
 	do
 	{
-		requestPos(&dados, &dadosR);
-	} while (dadosR.memPar->rType != RES_AIRPORT_FOUND);
+		requestPos(&dadosP, &dados.events.hEvent_CA);
+	} while (dados.sharedmem.MemPar_CA->rType != RES_AIRPORT_FOUND);
 
-	updatePos(&dados, dadosR.memPar->Coord.x, dadosR.memPar->Coord.y);
+	updatePos(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
+	dados.me.State = STATE_AEROPORTO;
 
-	me.State = STATE_AEROPORTO;
-
-	hHBThread = CreateThread(NULL, 0, ThreadHB, &dados, 0, NULL);
-	if (hHBThread == NULL)
+	dados.threads.hHBThread = CreateThread(NULL, 0, ThreadHB, &dadosHB, 0, NULL);
+	if (dados.threads.hHBThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
 	while (TRUE)
 	{
-		if (me.State == STATE_AEROPORTO)
+		if (dados.me.State == STATE_AEROPORTO)
 		{
 			opt = -1;
-			_tprintf(TEXT("\nPID: %lu\n"), me.PId);
+			_tprintf(TEXT("\nPID: %lu\n"), dados.me.PId);
 			_tprintf(TEXT("No Aeroporto\n"));
 			_tprintf(TEXT("\t1: Escolher destino\n"));
 			_tprintf(TEXT("\t2: Embarcar passageiros\n"));
@@ -130,11 +142,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 			switch (opt)
 			{
 				case 1:
-					requestPos(&dados, &dadosR);
-					if (dadosR.memPar->rType == RES_AIRPORT_FOUND)
+					requestPos(&dadosP, &dados.events.hEvent_CA);
+					if (dados.sharedmem.MemPar_CA->rType == RES_AIRPORT_FOUND)
 					{
-						updateDes(&dados, dadosR.memPar->Coord.x, dadosR.memPar->Coord.y);
-						_tprintf(TEXT("Novo destino: %d %d\n"), me.Dest.x, me.Dest.y);
+						updateDes(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
+						_tprintf(TEXT("Novo destino: %d %d\n"), dados.me.Dest.x, dados.me.Dest.y);
 					}
 					else {
 						_tprintf(TEXT("Aeroporto Invalido\n"));
@@ -144,12 +156,16 @@ int _tmain(int argc, LPTSTR argv[]) {
 					_tprintf(TEXT("Not Implemented\n"));
 					break;
 				case 3:
-					if (me.Coord.x != me.Dest.x || me.Coord.y != me.Dest.y)
+					WaitForSingleObject(dados.mutexes.hMutexMe, INFINITE);
+					if (dados.me.Coord.x != dados.me.Dest.x || dados.me.Coord.y != dados.me.Dest.y)
 					{
-						hVThread = CreateThread(NULL, 0, ThreadV, &dadosV, 0, NULL);
-						if (hVThread == NULL)
+						ReleaseMutex(dados.mutexes.hMutexMe);
+						dados.threads.hVThread = CreateThread(NULL, 0, ThreadV, &dadosV, 0, NULL);
+						if (dados.threads.hVThread == NULL)
 							error(ERR_CREATE_THREAD, EXIT_FAILURE);
-						WaitForSingleObject(hVThread,INFINITE);
+						WaitForSingleObject(dados.threads.hVThread,INFINITE);
+						dadosP.rType = REQ_REACHEDDES;
+						ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
 					}
 					else {
 						_tprintf(TEXT("Escolha um destino\n"));
@@ -160,7 +176,5 @@ int _tmain(int argc, LPTSTR argv[]) {
 			}
 		}
 	}
-
-	WaitForSingleObject(hPThread, INFINITE);
 	return EXIT_SUCCESS;
 }

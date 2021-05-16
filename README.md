@@ -4,6 +4,8 @@
 - [x] single instance
 - [x] read registry for max avioes and max aeroportos
 - [x] set registry if not set
+- [x] Better Var management and mutexes
+- [ ] Encerrar e avisar tudo
 
 ## aviao
 
@@ -11,7 +13,7 @@
 - [x] get seats, speed and initial airport from console
 - [ ] Se a posição estiver ocupada, o avião deverá lidar com a situação de forma coerente (desvio/caminho alternativo, aguardar, outra estratégia).
 - [x] Quando chega a um novo aeroporto, deve comunicar a sua chegada ao controlador aéreo
-- [ ] Better Var management and mutexes
+- [x] Better Var management and mutexes
 
 ## communication
 - [x] get Destination
