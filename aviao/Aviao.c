@@ -174,11 +174,14 @@ int _tmain(int argc, LPTSTR argv[]) {
 	} while (dados.sharedmem.MemPar_CA->rType != RES_AIRPORT_FOUND);
 
 	updatePos(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
-	dados.me.State = STATE_AEROPORTO;
 
 	dados.threads.hHBThread = CreateThread(NULL, 0, ThreadHB, &dadosHB, 0, NULL);
 	if (dados.threads.hHBThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
+
+	updateDes(&dadosP, dados.me.Coord.x, dados.me.Coord.x);
+	dados.me.State = STATE_AEROPORTO;
+
 
 	while (TRUE)
 	{
@@ -186,7 +189,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 		{
 			opt = -1;
 			_tprintf(TEXT("\nPID: %lu\n"), dados.me.PId);
-			_tprintf(TEXT("No Aeroporto\n"));
+			_tprintf(TEXT("Posicao: %d %d\n"), dados.me.Coord.x, dados.me.Coord.x);
 			_tprintf(TEXT("\t1: Escolher destino\n"));
 			_tprintf(TEXT("\t2: Embarcar passageiros\n"));
 			_tprintf(TEXT("\t3: Iniciar viagem\n"));
@@ -204,12 +207,16 @@ int _tmain(int argc, LPTSTR argv[]) {
 					WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
 					if (dados.sharedmem.MemPar_CA->rType == RES_AIRPORT_FOUND)
 					{
-						updateDes(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
-						_tprintf(TEXT("Novo destino: %d %d\n"), dados.me.Dest.x, dados.me.Dest.y);
+						if (dados.sharedmem.MemPar_CA->Coord.x != dados.me.Coord.x || dados.sharedmem.MemPar_CA->Coord.y != dados.me.Coord.y)
+						{
+							updateDes(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
+							_tprintf(TEXT("Novo destino: %d %d\n"), dados.me.Dest.x, dados.me.Dest.y);
+						}
+						else
+							_tprintf(TEXT("Aeroporto Invalido\n"));
 					}
-					else {
+					else
 						_tprintf(TEXT("Aeroporto Invalido\n"));
-					}
 					break;
 				case 2:
 					_tprintf(TEXT("Not Implemented\n"));
@@ -227,6 +234,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 						ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
 					}
 					else {
+						ReleaseMutex(dados.mutexes.hMutexMe);
 						_tprintf(TEXT("Escolha um destino\n"));
 					}
 					break;
