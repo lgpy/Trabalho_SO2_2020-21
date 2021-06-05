@@ -1,4 +1,5 @@
 #pragma once
+
 #include <windows.h>
 #include <tchar.h>
 #include <fcntl.h>
@@ -7,6 +8,7 @@
 #include <io.h>
 #include <time.h>
 #include "com_control_aviao.h"
+#include "com_control_passag.h"
 #include "err_str.h"
 
 #define DEFAULT_MAX_AVIOES 10
@@ -14,13 +16,15 @@
 
 #define MutexAvioes_NAME TEXT("MutexAvioes")
 #define MutexAeroportos_NAME TEXT("MutexAeroportos")
+#define MutexPassageiros_NAME TEXT("MutexPassageiros")
+
 
 #define REG_KEY_PATH TEXT("SOFTWARE\\TPSO2")
 #define REG_MAX_AVIOES_KEY_NAME TEXT("MAX_AVIOES")
 #define REG_MAX_AEROPORTOS_KEY_NAME TEXT("MAX_AEROPORTOS")
 #define REG_MAX_AEROPORTOS_KEY_NAME TEXT("MAX_AEROPORTOS")
 
-//#define DEBUG
+#define DEBUG
 
 typedef struct {
 	DWORD PId;
@@ -36,12 +40,26 @@ typedef struct {
 	HANDLE hFileMap;
 	HANDLE hEvent;
 	Response* memPar;
+	HANDLE hMutexMemPar;
 } Aviao;
 
 typedef struct {
 	TCHAR Name[30];
 	Coords Coord;
 } Aeroporto;
+
+typedef struct {
+	DWORD PId;
+	TCHAR Name[MAX_Passag_NAME];
+	DWORD AviaoPId;
+	Coords Coord;
+	Coords Dest;
+
+	HANDLE hPipe;
+	HANDLE hThread;
+	int terminar;
+} Passageiro;
+
 
 typedef struct {
 	BufferCircular* memPar;
@@ -52,16 +70,24 @@ typedef struct {
 	int aceitarAvioes;
 
 	Aviao* Avioes;
-	HANDLE hMutexAvioes;
 	Aeroporto* Aeroportos;
+	Passageiro* Passageiros; //TODO add mutex for this?
+	HANDLE hMutexAvioes;
 	HANDLE hMutexAeroportos;
-	int nAvioes, nAeroportos;
-	int MAX_AVIOES, MAX_AEROPORTOS;
+	HANDLE hMutexPassageiros;
+	int nAvioes, nAeroportos, nPassageiros;
+	int MAX_AVIOES, MAX_AEROPORTOS, MAX_PASSAGEIROS;
 } Dados;
+
+typedef struct {
+	Dados* dados;
+	Passageiro* Passageiro;
+} DadosPassag;
 
 void error(const TCHAR* msg, int exit_code);
 DWORD getRegVal(const TCHAR* ValueName, const int Default);
 void init_dados(Dados* dados, HANDLE* hFileMap);
+void PrintInfo(Dados* dados);
 void PrintMenu(Dados* dados);
 void Handler(Dados* dados, CelulaBuffer* cel);
 int FindAviaobyPId(Dados* dados, DWORD PId);
@@ -70,3 +96,10 @@ int AeroportoisIsolated(Dados* dados, Coords coords);
 int AddAviao(Dados* dados, AviaoOriginator* newAviao);
 int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
 void RemoveAviao(Dados* dados, int index);
+DWORD WINAPI ThreadConsumidor(LPVOID param);
+DWORD WINAPI ThreadHBChecker(LPVOID param);
+int AddPassageiro(Dados* dados, Passageiro* newPassageiro);
+void RemovePassageiro(Dados* dados, int index);
+int Embark(Dados* dados, Aviao* aviao);
+int Disembark(Dados* dados, Aviao* aviao);
+void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate);

@@ -19,7 +19,7 @@
 #define STATE_AEROPORTO 0
 #define STATE_VIAGEM 1
 
-//#define DEBUG
+#define DEBUG
 
 typedef struct {
 	BufferCircular* MemPar_AC; // shared
@@ -35,6 +35,7 @@ typedef struct {
 	HANDLE hMutexMempar; // shared
 	HANDLE hMutexMe; // not shared
 	HANDLE hMutexMapa; //shared
+	HANDLE hMutexMemPar_CA; //shared w/Control
 } Mutexes;
 
 typedef struct {
@@ -82,7 +83,7 @@ typedef struct {
 	AviaoOriginator* me;
 
 	int rType;
-	TCHAR buffer[TAM_BUFFER];
+	TCHAR buffer[MAX_BUFFER];
 
 	HANDLE* hSemaphoreProduce; // not shared
 	HANDLE* hSemEscrita; // shared 
@@ -108,6 +109,7 @@ typedef struct {
 	HANDLE* hEvent_CA; // not shared
 	HANDLE* hSemaphoreReceive;
 	Response* MemPar_CA;
+	HANDLE* hMutexMemPar_CA;
 	int* terminar;
 } DadosR;
 

@@ -20,5 +20,9 @@
 #define ERR_CREATE_THREAD TEXT("Error while creating a thread.")
 #define ERR_OPEN_EVENT TEXT("Error while oppening a event.")
 
-
+#define ERR_WAITING_PIPE TEXT("Error while waiting for a named pipe.")
+#define ERR_CONNECT_PIPE TEXT("Error while connecting to a named pipe.")
+#define ERR_WRITE_PIPE TEXT("Error while writing to a named pipe.")
+#define ERR_READ_PIPE TEXT("Error while reading a named pipe.")
+#define ERR_CREATE_PIPE TEXT("Error while creating a named pipe.")
 

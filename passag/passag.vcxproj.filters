@@ -11,24 +11,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Aviao.c">
+    <ClCompile Include="Passag.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Aviao_Utils.c">
+    <ClCompile Include="Passag_Utils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\utils\com_control_aviao.h">
+    <ClInclude Include="Passag_Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\utils\com_control_passag.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\utils\err_str.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SO2_TP_DLL_2021.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Aviao_Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\utils\global.h">

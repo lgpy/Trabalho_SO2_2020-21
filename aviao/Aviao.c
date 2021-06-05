@@ -16,7 +16,7 @@ DWORD WINAPI ThreadHB(LPVOID param) {
 
 		CopyMemory(&dados->memPar->buffer[dados->memPar->pWrite], &cel, sizeof(CelulaBuffer));
 		dados->memPar->pWrite++;
-		if (dados->memPar->pWrite == TAM_CBUFFER)
+		if (dados->memPar->pWrite == MAX_CBUFFER)
 			dados->memPar->pWrite = 0;
 
 		ReleaseMutex(*dados->hMutexMempar);
@@ -45,7 +45,7 @@ DWORD WINAPI ThreadP(LPVOID param) {
 
 		CopyMemory(&dados->memPar->buffer[dados->memPar->pWrite], &cel, sizeof(CelulaBuffer));
 		dados->memPar->pWrite++;
-		if (dados->memPar->pWrite == TAM_CBUFFER)
+		if (dados->memPar->pWrite == MAX_CBUFFER)
 			dados->memPar->pWrite = 0;
 
 		ReleaseMutex(*dados->hMutexMempar);
@@ -134,10 +134,12 @@ DWORD WINAPI ThreadR(LPVOID param) {
 	while (!(*dados->terminar))
 	{
 		WaitForSingleObject(*dados->hEvent_CA, INFINITE);
+		WaitForSingleObject(*dados->hMutexMemPar_CA, INFINITE);
 		if (dados->MemPar_CA->rType == RES_CONTROL_SHUTDOWN) {
 			_tprintf(TEXT("Control has Shutdown\n"));
 			*dados->terminar = 1;
 		}
+		ReleaseMutex(*dados->hMutexMemPar_CA);
 		ReleaseSemaphore(*dados->hSemaphoreReceive, 1, NULL);
 	}
 	return 0;
@@ -147,7 +149,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	DWORD res;
 	int opt;
 
-	TCHAR buffer[TAM_BUFFER];
+	TCHAR buffer[MAX_BUFFER];
 	Data dados;
 	DadosHB dadosHB;
 	DadosP dadosP;
@@ -199,7 +201,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 			_tprintf(TEXT("\t3: Iniciar viagem\n"));
 			do
 			{
-				_fgetts(buffer, TAM_BUFFER, stdin);
+				_fgetts(buffer, MAX_BUFFER, stdin);
 				opt = _tstoi(buffer);
 				if (dados.terminar)
 					return EXIT_SUCCESS;
@@ -223,7 +225,9 @@ int _tmain(int argc, LPTSTR argv[]) {
 						_tprintf(TEXT("Aeroporto Invalido\n"));
 					break;
 				case 2:
-					_tprintf(TEXT("Not Implemented\n"));
+					dadosP.rType = REQ_EMBARK;
+					ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
+					//WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE); to show how many embarked?
 					break;
 				case 3:
 					WaitForSingleObject(dados.mutexes.hMutexMe, INFINITE);
@@ -233,7 +237,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 						dados.threads.hVThread = CreateThread(NULL, 0, ThreadV, &dadosV, 0, NULL);
 						if (dados.threads.hVThread == NULL)
 							error(ERR_CREATE_THREAD, EXIT_FAILURE);
-						WaitForSingleObject(dados.threads.hVThread,INFINITE);
+						WaitForSingleObject(dados.threads.hVThread, INFINITE);
 						dadosP.rType = REQ_REACHEDDES;
 						ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
 					}

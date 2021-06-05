@@ -1,58 +1,129 @@
 #include "Control_Utils.h"
 
+DWORD WINAPI ThreadPassag(LPVOID param) {
+	DadosPassag* dadosPassag = (DadosPassag*)param;
+	int airportindex;
 
+	RequestCP req;
+	ResponseCP res;
 
-DWORD WINAPI ThreadConsumidor(LPVOID param) {
-	Dados* dados = (Dados*)param;
-	CelulaBuffer cel;
+	res.Type = RES_ADDED;
 
-	while (!dados->terminar)
-	{
-		WaitForSingleObject(dados->hSemLeitura, INFINITE); // Espera para poder ocupar um slot para Escrita
-
-		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->pRead], sizeof(CelulaBuffer));
-		dados->memPar->pRead++;
-		if (dados->memPar->pRead == TAM_CBUFFER)
-			dados->memPar->pRead = 0;
-
-		Handler(dados, &cel);
-
-		ReleaseSemaphore(dados->hSemEscrita, 1, NULL); // Liberta um slot para Leitura
+	if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+		_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+		dadosPassag->Passageiro->terminar = 1;
 	}
 
-	return 0;
-}
-
-DWORD WINAPI ThreadHBChecker(LPVOID param) {
-	Dados* dados = (Dados*)param;
-	int i;
-	time_t timenow;
-	while (!dados->terminar)
+	while (!dadosPassag->Passageiro->terminar)
 	{
-		timenow = time(NULL);
-		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
-		for (i = 0; i < dados->nAvioes; i++)
-		{
-			if (difftime(timenow,dados->Avioes[i].lastHB) > 3)
-			{
-				_tprintf(TEXT("%lu's heartbeat has stopped\n"), dados->Avioes[i].PId);
-				RemoveAviao(dados, i);
-			}
+		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
+			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
+			dadosPassag->Passageiro->terminar = 1;
+			continue;
 		}
-		ReleaseMutex(dados->hMutexAvioes);
-		Sleep(1000);
+
+		switch (req.Type)
+		{
+		case REQ_AIRPORT:
+			airportindex = FindAeroportobyName(dadosPassag->dados, req.buffer);
+			if (airportindex == -1) {
+				res.Type = RES_AIRPORT_NOTFOUND;
+			}
+			else {
+				res.Type = RES_AIRPORT_FOUND;
+				res.Coord.x = dadosPassag->dados->Aeroportos[airportindex].Coord.x;
+				res.Coord.y = dadosPassag->dados->Aeroportos[airportindex].Coord.y;
+			}
+			if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+				dadosPassag->Passageiro->terminar = 1;
+			}
+			break;
+		case REQ_UPDATE:
+			CopyMemory(&dadosPassag->Passageiro->Coord, &req.Originator.Coord, sizeof(Coords));
+			CopyMemory(&dadosPassag->Passageiro->Dest, &req.Originator.Dest, sizeof(Coords));
+			break;
+			
+		default:
+			break;
+		}
+	}
+	//remove if got here?
+	return 0;
+}
+
+DWORD WINAPI ThreadNewPassag(LPVOID param) {
+	Dados* dados = (Dados*)param;
+
+	int index;
+	Passageiro newPassag;
+	DadosPassag* dadosPassag;
+
+	HANDLE hPipe;
+	RequestCP req;
+	ResponseCP res;
+
+	while (!dados->terminar)
+	{
+		_tprintf(TEXT("[ESCRITOR] Criar uma copia do pipe '%s' ... (CreateNamedPipe)\n"), NamedPipe_NAME);
+		hPipe = CreateNamedPipe(NamedPipe_NAME,
+			PIPE_ACCESS_DUPLEX,
+			PIPE_WAIT | PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE,
+			10,//TODO Change this?
+			sizeof(ResponseCP),
+			sizeof(RequestCP),
+			1000,
+			NULL);
+
+		if (hPipe == INVALID_HANDLE_VALUE) {
+			_tprintf(TEXT("%s\n"), ERR_CREATE_PIPE);
+			continue;
+		}
+
+		_tprintf(TEXT("[ESCRITOR] Esperar ligacao de um leitor... (ConnectNamedPipe)\n"));
+		if (!ConnectNamedPipe(hPipe, NULL)) {
+			_tprintf(TEXT("%s\n"), ERR_CONNECT_PIPE);
+			continue;
+		}
+
+		if (!ReadFile(hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
+			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
+			continue;
+		}
+
+		newPassag.hPipe = hPipe;
+		newPassag.PId = req.Originator.PId;
+		_tcscpy_s(newPassag.Name, _countof(newPassag.Name), req.Originator.Name);
+
+		dadosPassag = malloc(sizeof(DadosPassag));
+		if (dadosPassag == NULL)
+			error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
+
+		WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
+		index = AddPassageiro(dados, &newPassag);
+		if (index == -1) {
+			continue;
+			ReleaseMutex(dados->hMutexPassageiros);
+		}
+
+		dadosPassag->Passageiro = &dados->Passageiros[index];
+		dadosPassag->dados = dados;
+
+		dados->Passageiros[dados->nPassageiros].hThread = CreateThread(NULL, 0, ThreadPassag, dadosPassag, 0, NULL);
+		if (dados->Passageiros[dados->nPassageiros].hThread == NULL) {
+			_tprintf(TEXT("%s\n"), ERR_CREATE_THREAD);
+			RemovePassageiro(dados, index);
+		}
+		ReleaseMutex(dados->hMutexPassageiros);
 	}
 
 	return 0;
 }
-
 
 int _tmain(int argc, LPTSTR argv[]) {
-	int opt, i;
-	TCHAR buffer[TAM_BUFFER];
-	Aeroporto newAeroporto;
+	int i;
 
-	HANDLE hFileMap, hThread, hHBCThread; // change names
+	HANDLE hFileMap, hThread, hHBCThread, hNPThread; // change names
 	Dados dados; // change names
 
 #ifdef UNICODE
@@ -63,6 +134,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	init_dados(&dados, &hFileMap);
 
 #ifdef DEBUG
+	Aeroporto newAeroporto;
 	newAeroporto.Coord.x = 50;
 	newAeroporto.Coord.y = 50;
 	CopyMemory(newAeroporto.Name, TEXT("a1"), 3 * sizeof(TCHAR));
@@ -78,66 +150,19 @@ int _tmain(int argc, LPTSTR argv[]) {
 	if (hThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
-	if (hHBCThread == NULL)
+	//hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
+	//if (hHBCThread == NULL)
+	//	error(ERR_CREATE_THREAD, EXIT_FAILURE);
+
+	hNPThread = CreateThread(NULL, 0, ThreadNewPassag, &dados, 0, NULL);
+	if (hNPThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	while (TRUE)
-	{
-		opt = -1;
-		_tprintf(TEXT("1: Listar Informação\n"));
-		_tprintf(TEXT("2: Criar Aeroporto\n"));
-		if (dados.aceitarAvioes)
-			_tprintf(TEXT("3: Suspender aceitação de aviões\n"));
-		else
-			_tprintf(TEXT("3: Ativar aceitação de aviões\n"));
-		_tprintf(TEXT("4: Encerrar\n"));
-		do
-		{
-			_fgetts(buffer, TAM_BUFFER, stdin);
-			opt = _tstoi(buffer);
-		} while (!(opt <= 4 && opt >= 1));
-		switch (opt)
-		{
-		case 1:
-			PrintMenu(&dados);
-			break;
-		case 2:
-			_tprintf(TEXT("Nome do Aeroporto: "));
-			_fgetts(newAeroporto.Name, TAM_BUFFER, stdin);
-			newAeroporto.Name[_tcslen(newAeroporto.Name) - 1] = '\0';
-			_tprintf(TEXT("X: "));
-			_fgetts(buffer, TAM_BUFFER, stdin);
-			newAeroporto.Coord.x = _tstoi(buffer);
-			_tprintf(TEXT("Y: "));
-			_fgetts(buffer, TAM_BUFFER, stdin);
-			newAeroporto.Coord.y = _tstoi(buffer);
-			if (AddAeroporto(&dados, &newAeroporto) > -1) {
-				_tprintf(TEXT("Aeroporto adicionado\n"));
-			}else
-				_tprintf(TEXT("Aeroporto invalido\n"));
-			break;
-		case 3:
-			if (dados.aceitarAvioes)
-				dados.aceitarAvioes = FALSE;
-			else
-				dados.aceitarAvioes = TRUE;
-			break;
-		case 4:
-			WaitForSingleObject(dados.hMutexAvioes, INFINITE);
-			for (i = 0; i < dados.nAvioes; i++)
-			{
-				dados.Avioes[i].memPar->rType = RES_CONTROL_SHUTDOWN;
-				SetEvent(dados.Avioes[i].hEvent);
-			}
-			exit(EXIT_SUCCESS);
-			break;
-		default:
-			break;
-		}
-	}
+	while (dados.terminar == 0)
+		PrintMenu(&dados);
 
 	WaitForSingleObject(hThread, INFINITE);
+	//WaitForSingleObject(hHBCThread, INFINITE);
 	free(dados.Avioes); free(dados.Aeroportos);
 	return EXIT_SUCCESS;
 }
