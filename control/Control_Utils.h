@@ -105,7 +105,7 @@ int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
 int FindAeroportobyName(Dados* dados, TCHAR* name);
 int AeroportoisIsolated(Dados* dados, Coords coords);
 
-int AddPassageiro(Dados* dados, Passageiro* newPassageiro);
+int AddPassageiro(Dados* dados, HANDLE hPipe);
 void RemovePassageiro(Dados* dados, int index);
 int Embark(Dados* dados, Aviao* aviao);
 int Disembark(Dados* dados, Aviao* aviao);

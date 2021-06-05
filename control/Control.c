@@ -7,13 +7,6 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 	RequestCP req;
 	ResponseCP res;
 
-	res.Type = RES_ADDED;
-
-	if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
-		_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-		dadosPassag->Passageiro->terminar = 1;
-	}
-
 	while (!dadosPassag->Passageiro->terminar)
 	{
 		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
@@ -24,6 +17,15 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 
 		switch (req.Type)
 		{
+		case REQ_INIT:
+			dadosPassag->Passageiro->PId = req.Originator.PId;
+			_tcscpy_s(dadosPassag->Passageiro->Name, _countof(dadosPassag->Passageiro->Name), req.Originator.Name);
+			res.Type = RES_ADDED;
+			if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+				dadosPassag->Passageiro->terminar = 1;
+			}
+			break;
 		case REQ_AIRPORT:
 			airportindex = FindAeroportobyName(dadosPassag->dados, req.buffer);
 			if (airportindex == -1) {
@@ -49,6 +51,7 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 			break;
 		}
 	}
+	free(dadosPassag);
 	//remove if got here?
 	return 0;
 }
@@ -57,7 +60,6 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 	Dados* dados = (Dados*)param;
 
 	int index;
-	Passageiro newPassag;
 	DadosPassag* dadosPassag;
 
 	HANDLE hPipe;
@@ -66,7 +68,6 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 
 	while (!dados->terminar)
 	{
-		_tprintf(TEXT("[ESCRITOR] Criar uma copia do pipe '%s' ... (CreateNamedPipe)\n"), NamedPipe_NAME);
 		hPipe = CreateNamedPipe(NamedPipe_NAME,
 			PIPE_ACCESS_DUPLEX,
 			PIPE_WAIT | PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE,
@@ -81,27 +82,20 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 			continue;
 		}
 
-		_tprintf(TEXT("[ESCRITOR] Esperar ligacao de um leitor... (ConnectNamedPipe)\n"));
 		if (!ConnectNamedPipe(hPipe, NULL)) {
-			_tprintf(TEXT("%s\n"), ERR_CONNECT_PIPE);
-			continue;
+			if (GetLastError() != ERROR_PIPE_CONNECTED)
+			{
+				_tprintf(TEXT("%s\n"), ERR_CONNECT_PIPE);
+				continue;
+			}
 		}
-
-		if (!ReadFile(hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
-			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
-			continue;
-		}
-
-		newPassag.hPipe = hPipe;
-		newPassag.PId = req.Originator.PId;
-		_tcscpy_s(newPassag.Name, _countof(newPassag.Name), req.Originator.Name);
-
+		
 		dadosPassag = malloc(sizeof(DadosPassag));
 		if (dadosPassag == NULL)
 			error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
-
+		HANDLE temp = hPipe;
 		WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-		index = AddPassageiro(dados, &newPassag);
+		index = AddPassageiro(dados, temp);
 		if (index == -1) {
 			continue;
 			ReleaseMutex(dados->hMutexPassageiros);

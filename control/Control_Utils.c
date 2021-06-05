@@ -213,10 +213,11 @@ void PrintInfo(Dados* dados) { // Need Mutex
 	_tprintf(TEXT("\nPassageiros\n"));
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
-		if (dados->Passageiros[i].AviaoPId == NULL)
-			_tprintf(TEXT("\t%5s | %3d, %3d | %3d, %3d\n"), dados->Passageiros[i].Name, dados->Passageiros[i].Coord.x, dados->Passageiros[i].Coord.y, dados->Passageiros[i].Dest.x, dados->Passageiros[i].Dest.y);
-		else
-			_tprintf(TEXT("\t%5s | %5lu\n"), dados->Passageiros[i].Name, dados->Passageiros[i].AviaoPId);
+		if (dados->Passageiros[i].ready)
+			if (dados->Passageiros[i].AviaoPId == NULL)
+				_tprintf(TEXT("\t%5s | %3d, %3d | %3d, %3d\n"), dados->Passageiros[i].Name, dados->Passageiros[i].Coord.x, dados->Passageiros[i].Coord.y, dados->Passageiros[i].Dest.x, dados->Passageiros[i].Dest.y);
+			else
+				_tprintf(TEXT("\t%5s | %5lu\n"), dados->Passageiros[i].Name, dados->Passageiros[i].AviaoPId);
 	ReleaseMutex(dados->hMutexPassageiros);
 }
 void PrintMenu(Dados* dados) {
@@ -403,7 +404,7 @@ int AeroportoisIsolated(Dados* dados, Coords coords) {
 }
 
 //PASSAGEIROS
-int AddPassageiro(Dados* dados, Passageiro* newPassageiro) {
+int AddPassageiro(Dados* dados, HANDLE hPipe) {
 	Passageiro* newPointer;
 	if (dados->nPassageiros < dados->MAX_PASSAGEIROS) {
 		newPointer = realloc(dados->Passageiros, sizeof(Passageiro) * (dados->nPassageiros + 1)); // check if reallocated
@@ -414,10 +415,10 @@ int AddPassageiro(Dados* dados, Passageiro* newPassageiro) {
 		dados->Passageiros = newPointer;
 		dados->MAX_PASSAGEIROS++;
 	}
-	newPassageiro->terminar = FALSE;
-	newPassageiro->ready = TRUE;
-	newPassageiro->AviaoPId = NULL;
-	CopyMemory(&dados->Passageiros[dados->nPassageiros], newPassageiro, sizeof(Passageiro));
+	dados->Passageiros[dados->nPassageiros].terminar = FALSE;
+	dados->Passageiros[dados->nPassageiros].ready = FALSE;
+	dados->Passageiros[dados->nPassageiros].AviaoPId = NULL;
+	dados->Passageiros[dados->nPassageiros].hPipe = hPipe;
 	return dados->nPassageiros++;
 }
 void RemovePassageiro(Dados* dados, int index) {
