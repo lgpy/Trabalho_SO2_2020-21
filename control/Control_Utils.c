@@ -6,13 +6,12 @@ void init_dados(Dados* dados, HANDLE* hFileMap) {
 	// Get/Set Registry keys
 	dados->MAX_AVIOES = getRegVal(REG_MAX_AVIOES_KEY_NAME, 10);
 	dados->MAX_AEROPORTOS = getRegVal(REG_MAX_AEROPORTOS_KEY_NAME, 5);
-	dados->MAX_PASSAGEIROS = 1;
 
 	// Allocate memory for MAX vals
 	dados->Avioes = malloc(sizeof(Aviao) * dados->MAX_AVIOES);
 	dados->Aeroportos = malloc(sizeof(Aeroporto) * dados->MAX_AEROPORTOS);
-	dados->Passageiros = malloc(sizeof(Passageiro));
-	if (dados->Avioes == NULL || dados->Aeroportos == NULL || dados->Passageiros == NULL)
+	
+	if (dados->Avioes == NULL || dados->Aeroportos == NULL)
 		error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
 
 	dados->nAeroportos = 0;
@@ -142,26 +141,26 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		dados->Avioes[index].Coord.x = cel->Originator.Coord.x;
 		dados->Avioes[index].Coord.y = cel->Originator.Coord.y;
 		ReleaseMutex(dados->hMutexAvioes);
-		UpdateEmbarked(dados, dados->Avioes[index].PId, dados->Avioes[index].Coord); //TODO fix it;
+		//UpdateEmbarked(dados, dados->Avioes[index].PId, dados->Avioes[index].Coord); //TODO fix it;
 		break;
 	case REQ_UPDATEDES:
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
 		dados->Avioes[index].Dest.x = cel->Originator.Dest.x;
 		dados->Avioes[index].Dest.y = cel->Originator.Dest.y;
-		_tprintf(TEXT("%lu changed its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, Disembark(dados, &dados->Avioes[index]));
+		//_tprintf(TEXT("%lu changed its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, Disembark(dados, &dados->Avioes[index]));
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_REACHEDDES:
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
-		_tprintf(TEXT("%lu reached its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, Disembark(dados, &dados->Avioes[index]));
+		//_tprintf(TEXT("%lu reached its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, Disembark(dados, &dados->Avioes[index]));
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_EMBARK:
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
-		_tprintf(TEXT("%lu embarked %d passagers\n"), dados->Avioes[index].PId, Embark(dados, &dados->Avioes[index]));
+		//_tprintf(TEXT("%lu embarked %d passagers\n"), dados->Avioes[index].PId, Embark(dados, &dados->Avioes[index]));
 		ReleaseMutex(dados->hMutexAvioes);
 	default:
 		break;
@@ -399,77 +398,3 @@ int AeroportoisIsolated(Dados* dados, Coords coords) {
 }
 
 //PASSAGEIROS
-int AddPassageiro(Dados* dados, Passageiro* newPassageiro) {
-	Passageiro* newPointer;
-	if (dados->nPassageiros < dados->MAX_PASSAGEIROS) {
-		newPointer = realloc(dados->Passageiros, sizeof(Passageiro) * (dados->nPassageiros + 1)); // check if reallocated
-		if (newPointer == NULL) {
-			_tprintf(TEXT("%s\n"), ERR_INSUFFICIENT_MEMORY);
-			return -1;
-		}
-		dados->Passageiros = newPointer;
-		dados->MAX_PASSAGEIROS++;
-	}
-	newPassageiro->terminar = 0;
-	newPassageiro->AviaoPId = NULL;
-	CopyMemory(&dados->Passageiros[dados->nPassageiros], newPassageiro, sizeof(Passageiro));
-	return dados->nPassageiros++;
-}
-void RemovePassageiro(Dados* dados, int index) {
-	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-	int i = index;
-	//TODO free() stuff
-	for (i; i < dados->nPassageiros - 1; i++)
-		dados->Passageiros[i] = dados->Passageiros[i + 1];
-	dados->nPassageiros--;
-	ReleaseMutex(dados->hMutexPassageiros);
-}
-
-int Embark(Dados* dados, Aviao* aviao) {
-	int count = 0, i;
-	ResponseCP res;
-	res.Type = RES_EMBARKED;
-	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-	for (i = 0; i < dados->nPassageiros; i++)
-		if (dados->Passageiros[i].Coord.x == aviao->Coord.x && dados->Passageiros[i].Coord.y == aviao->Coord.y)
-			if (dados->Passageiros[i].Dest.x == aviao->Dest.x && dados->Passageiros[i].Dest.y == aviao->Dest.y)
-				if (dados->Passageiros[i].AviaoPId == NULL)
-				{
-					dados->Passageiros[i].AviaoPId = aviao->PId;
-					//WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL); //TODO writefile gets stuck
-					count++;
-				}
-	ReleaseMutex(dados->hMutexPassageiros);
-	return count;
-}
-
-int Disembark(Dados* dados, Aviao* aviao) {
-	int count = 0, i;
-	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-	for (i = 0; i < dados->nPassageiros; i++)
-		if (dados->Passageiros[i].AviaoPId == aviao->PId)
-		{
-			dados->Passageiros[i].AviaoPId = NULL;
-			count++;
-		}
-	ReleaseMutex(dados->hMutexPassageiros);
-	return count;
-}
-
-void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate) {
-	int i;
-	ResponseCP res;
-	res.Type = RES_UPDATEDPOS;
-	CopyMemory(&res.Coord, &toUpdate, sizeof(Coords));
-
-	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-	for (i = 0; i < dados->nPassageiros; i++)
-		if (dados->Passageiros[i].AviaoPId == PId)
-			continue; //TODO writefile gets stuck
-			/*if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
-				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-				dados->Passageiros[i].terminar = 1;
-			}*/
-	ReleaseMutex(dados->hMutexPassageiros);
-	_tprintf(TEXT("UpdateEmbarked\n"));
-}

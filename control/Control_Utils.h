@@ -13,6 +13,7 @@
 
 #define DEFAULT_MAX_AVIOES 10
 #define DEFAULT_MAX_AEROPORTOS 5
+#define MAX_PASSAGEIROS 5
 
 #define MutexAvioes_NAME TEXT("MutexAvioes")
 #define MutexAeroportos_NAME TEXT("MutexAeroportos")
@@ -49,19 +50,6 @@ typedef struct {
 } Aeroporto;
 
 typedef struct {
-	DWORD PId;
-	TCHAR Name[MAX_Passag_NAME];
-	DWORD AviaoPId;
-	Coords Coord;
-	Coords Dest;
-
-	HANDLE hPipe;
-	HANDLE hThread;
-	int terminar;
-} Passageiro;
-
-
-typedef struct {
 	BufferCircular* memPar;
 	HANDLE hSemEscrita; // posições que estão vazias
 	HANDLE hSemLeitura; // posições para ser lidas
@@ -69,20 +57,44 @@ typedef struct {
 	int terminar;
 	int aceitarAvioes;
 
-	Aviao* Avioes;
-	Aeroporto* Aeroportos;
-	Passageiro* Passageiros; //TODO add mutex for this?
-	HANDLE hMutexAvioes;
-	HANDLE hMutexAeroportos;
+	Passageiro Passageiros[MAX_PASSAGEIROS];
 	HANDLE hMutexPassageiros;
+	HANDLE hPassagEvents[MAX_PASSAGEIROS];
+	HANDLE hThreadReqHandler;
+
+	Aviao* Avioes;
+	HANDLE hMutexAvioes;
+
+	Aeroporto* Aeroportos;
+	HANDLE hMutexAeroportos;
+
 	int nAvioes, nAeroportos, nPassageiros;
-	int MAX_AVIOES, MAX_AEROPORTOS, MAX_PASSAGEIROS;
+	int MAX_AVIOES, MAX_AEROPORTOS;
 } Dados;
 
 typedef struct {
 	Dados* dados;
-	Passageiro* Passageiro;
+	int index;
+	int terminar;
 } DadosPassag;
+
+typedef struct {
+	HANDLE hPipe;
+	OVERLAPPED overlap;
+} PIPEINST;
+
+typedef struct {
+	DWORD PId;
+	TCHAR Name[MAX_Passag_NAME];
+	DWORD AviaoPId;
+	Coords Coord;
+	Coords Dest;
+
+	PIPEINST Pipe;
+	DadosPassag dadosPassag;
+	HANDLE hThread;
+} Passageiro;
+
 
 void error(const TCHAR* msg, int exit_code);
 DWORD getRegVal(const TCHAR* ValueName, const int Default);
@@ -98,8 +110,3 @@ int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
 void RemoveAviao(Dados* dados, int index);
 DWORD WINAPI ThreadConsumidor(LPVOID param);
 DWORD WINAPI ThreadHBChecker(LPVOID param);
-int AddPassageiro(Dados* dados, Passageiro* newPassageiro);
-void RemovePassageiro(Dados* dados, int index);
-int Embark(Dados* dados, Aviao* aviao);
-int Disembark(Dados* dados, Aviao* aviao);
-void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate);

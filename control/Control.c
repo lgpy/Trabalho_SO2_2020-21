@@ -1,24 +1,14 @@
 #include "Control_Utils.h"
 
-DWORD WINAPI ThreadPassag(LPVOID param) {
+DWORD WINAPI ThreadReqHandler(LPVOID param) {
 	DadosPassag* dadosPassag = (DadosPassag*)param;
-	int airportindex;
-
 	RequestCP req;
 	ResponseCP res;
+	int airportindex;
 
-	res.Type = RES_ADDED;
-
-	if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
-		_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-		dadosPassag->Passageiro->terminar = 1;
-	}
-
-	while (!dadosPassag->Passageiro->terminar)
-	{
-		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
+	while (!dadosPassag->terminar) {//TODO CHANGE
+		if (!ReadFile(dadosPassag->dados->Passageiros[dadosPassag->index].Pipe.hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
 			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
-			dadosPassag->Passageiro->terminar = 1;
 			continue;
 		}
 
@@ -34,96 +24,88 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 				res.Coord.x = dadosPassag->dados->Aeroportos[airportindex].Coord.x;
 				res.Coord.y = dadosPassag->dados->Aeroportos[airportindex].Coord.y;
 			}
-			if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+			if (!WriteFile(dadosPassag->dados->Passageiros[dadosPassag->index].Pipe.hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-				dadosPassag->Passageiro->terminar = 1;
 			}
 			break;
 		case REQ_UPDATE:
-			CopyMemory(&dadosPassag->Passageiro->Coord, &req.Originator.Coord, sizeof(Coords));
-			CopyMemory(&dadosPassag->Passageiro->Dest, &req.Originator.Dest, sizeof(Coords));
+			CopyMemory(&dadosPassag->dados->Passageiros[dadosPassag->index].Coord, &req.Originator.Coord, sizeof(Coords));
+			CopyMemory(&dadosPassag->dados->Passageiros[dadosPassag->index].Dest, &req.Originator.Dest, sizeof(Coords));
 			break;
-			
+		case REQ_INIT:
+			res.Type = RES_ADDED;
+			if (!WriteFile(dadosPassag->dados->Passageiros[dadosPassag->index].Pipe.hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+			}
+			break;
 		default:
 			break;
 		}
 	}
-	//remove if got here?
 	return 0;
 }
 
 DWORD WINAPI ThreadNewPassag(LPVOID param) {
+	HANDLE hPipe, hThread, hEventTemp;
 	Dados* dados = (Dados*)param;
-
-	int index;
-	Passageiro newPassag;
-	DadosPassag* dadosPassag;
-
-	HANDLE hPipe;
 	RequestCP req;
 	ResponseCP res;
+	int i, airportindex;
+	DWORD offset, nBytes;
 
-	while (!dados->terminar)
+	for (i = 0; i < MAX_PASSAGEIROS; i++)
 	{
-		_tprintf(TEXT("[ESCRITOR] Criar uma copia do pipe '%s' ... (CreateNamedPipe)\n"), NamedPipe_NAME);
-		hPipe = CreateNamedPipe(NamedPipe_NAME,
-			PIPE_ACCESS_DUPLEX,
-			PIPE_WAIT | PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE,
-			10,//TODO Change this?
+		hPipe = CreateNamedPipe(
+			NamedPipe_NAME,
+			PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+			PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+			MAX_PASSAGEIROS,
 			sizeof(ResponseCP),
 			sizeof(RequestCP),
 			1000,
 			NULL);
 
-		if (hPipe == INVALID_HANDLE_VALUE) {
-			_tprintf(TEXT("%s\n"), ERR_CREATE_PIPE);
-			continue;
-		}
+		if (hPipe == INVALID_HANDLE_VALUE)
+			error(ERR_CREATE_PIPE, EXIT_FAILURE);
 
-		_tprintf(TEXT("[ESCRITOR] Esperar ligacao de um leitor... (ConnectNamedPipe)\n"));
-		if (!ConnectNamedPipe(hPipe, NULL)) {
-			_tprintf(TEXT("%s\n"), ERR_CONNECT_PIPE);
-			continue;
-		}
+		hEventTemp = CreateEvent(NULL, TRUE, FALSE, NULL);
 
-		if (!ReadFile(hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
-			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
-			continue;
-		}
+		if (hEventTemp == NULL)
+			error(ERR_CREATE_EVENT, EXIT_FAILURE);
 
-		newPassag.hPipe = hPipe;
-		newPassag.PId = req.Originator.PId;
-		_tcscpy_s(newPassag.Name, _countof(newPassag.Name), req.Originator.Name);
+		dados->Passageiros[i].Pipe.hPipe = hPipe;
+		dados->Passageiros[i].Pipe.active = FALSE;
+		ZeroMemory(&dados->Passageiros[i].Pipe.overlap, sizeof(dados->Passageiros[i].Pipe.overlap));
+		dados->Passageiros[i].Pipe.overlap.hEvent = hEventTemp;
+		dados->hPassagEvents[i] = hEventTemp;
 
-		dadosPassag = malloc(sizeof(DadosPassag));
-		if (dadosPassag == NULL)
-			error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
-
-		WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-		index = AddPassageiro(dados, &newPassag);
-		if (index == -1) {
-			continue;
-			ReleaseMutex(dados->hMutexPassageiros);
-		}
-
-		dadosPassag->Passageiro = &dados->Passageiros[index];
-		dadosPassag->dados = dados;
-
-		dados->Passageiros[dados->nPassageiros].hThread = CreateThread(NULL, 0, ThreadPassag, dadosPassag, 0, NULL);
-		if (dados->Passageiros[dados->nPassageiros].hThread == NULL) {
-			_tprintf(TEXT("%s\n"), ERR_CREATE_THREAD);
-			RemovePassageiro(dados, index);
-		}
-		ReleaseMutex(dados->hMutexPassageiros);
+		ConnectNamedPipe(hPipe, &dados->Passageiros[i].Pipe.overlap);
 	}
 
-	return 0;
+	while (!dados->terminar) {
+		offset = WaitForMultipleObjects(MAX_PASSAGEIROS, dados->hPassagEvents, FALSE, INFINITE);
+		i = offset - WAIT_OBJECT_0;
+		if (i >= 0 && i < MAX_PASSAGEIROS) {
+			_tprintf(TEXT("[ESCRITOR] Leitor %d chegou\n"), i);
+			if (GetOverlappedResult(dados->Passageiros[i].Pipe.hPipe, &dados->Passageiros[i].Pipe.hPipe, &nBytes, FALSE)) {
+				ResetEvent(dados->hPassagEvents[i]);
+				
+				dados->Passageiros[i].dadosPassag.dados = dados;
+				dados->Passageiros[i].dadosPassag.index = i;
+				dados->Passageiros[i].dadosPassag.terminar = 0;
+
+				dados->Passageiros[i].hThread = CreateThread(NULL, 0, ThreadReqHandler, &dados->Passageiros[i].dadosPassag, 0, NULL);
+				if (dados->Passageiros[i].hThread == NULL)
+					error(ERR_CREATE_THREAD, EXIT_FAILURE);
+			}
+		}
+	}
 }
 
 int _tmain(int argc, LPTSTR argv[]) {
 	int i;
 
-	HANDLE hFileMap, hThread, hHBCThread, hNPThread; // change names
+	HANDLE hFileMap, hThread, hHBCThread, hThreadPipes, hThreadReqHandler; // change names
 	Dados dados; // change names
 
 #ifdef UNICODE
@@ -150,12 +132,12 @@ int _tmain(int argc, LPTSTR argv[]) {
 	if (hThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	//hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
-	//if (hHBCThread == NULL)
-	//	error(ERR_CREATE_THREAD, EXIT_FAILURE);
+	hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
+	if (hHBCThread == NULL)
+		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	hNPThread = CreateThread(NULL, 0, ThreadNewPassag, &dados, 0, NULL);
-	if (hNPThread == NULL)
+	hThreadPipes = CreateThread(NULL, 0, ThreadNewPassag, &dados, 0, NULL);
+	if (hThreadPipes == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
 	while (dados.terminar == 0)
