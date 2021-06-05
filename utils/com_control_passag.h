@@ -14,6 +14,7 @@
 #define RES_AIRPORT_FOUND 2
 #define RES_EMBARKED 3
 #define RES_UPDATEDPOS 4
+#define RES_DISEMBARKED 5
 
 typedef struct {
 	DWORD PId;

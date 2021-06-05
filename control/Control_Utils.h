@@ -57,6 +57,7 @@ typedef struct {
 
 	HANDLE hPipe;
 	HANDLE hThread;
+	HANDLE hEvent;
 	int terminar;
 } Passageiro;
 

@@ -412,6 +412,7 @@ int AddPassageiro(Dados* dados, Passageiro* newPassageiro) {
 	}
 	newPassageiro->terminar = 0;
 	newPassageiro->AviaoPId = NULL;
+	newPassageiro->hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	CopyMemory(&dados->Passageiros[dados->nPassageiros], newPassageiro, sizeof(Passageiro));
 	return dados->nPassageiros++;
 }
@@ -436,7 +437,12 @@ int Embark(Dados* dados, Aviao* aviao) {
 				if (dados->Passageiros[i].AviaoPId == NULL)
 				{
 					dados->Passageiros[i].AviaoPId = aviao->PId;
-					//WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL); //TODO writefile gets stuck
+					CancelIoEx(dados->Passageiros[i].hPipe, NULL);
+					if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+						_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+						dados->Passageiros[i].terminar = 1;
+					}
+					SetEvent(dados->Passageiros[i].hEvent);
 					count++;
 				}
 	ReleaseMutex(dados->hMutexPassageiros);
@@ -445,11 +451,20 @@ int Embark(Dados* dados, Aviao* aviao) {
 
 int Disembark(Dados* dados, Aviao* aviao) {
 	int count = 0, i;
+	ResponseCP res;
+	res.Type = RES_DISEMBARKED;
+
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
 		if (dados->Passageiros[i].AviaoPId == aviao->PId)
 		{
 			dados->Passageiros[i].AviaoPId = NULL;
+			CancelIoEx(dados->Passageiros[i].hPipe, NULL);
+			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+				dados->Passageiros[i].terminar = 1;
+			}
+			SetEvent(dados->Passageiros[i].hEvent);
 			count++;
 		}
 	ReleaseMutex(dados->hMutexPassageiros);
@@ -464,12 +479,13 @@ void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate) {
 
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
-		if (dados->Passageiros[i].AviaoPId == PId)
-			continue; //TODO writefile gets stuck
-			/*if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+		if (dados->Passageiros[i].AviaoPId == PId) {
+			CancelIoEx(dados->Passageiros[i].hPipe, NULL);
+			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
 				dados->Passageiros[i].terminar = 1;
-			}*/
+			}
+			SetEvent(dados->Passageiros[i].hEvent);
+		}
 	ReleaseMutex(dados->hMutexPassageiros);
-	_tprintf(TEXT("UpdateEmbarked\n"));
 }

@@ -16,7 +16,12 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 
 	while (!dadosPassag->Passageiro->terminar)
 	{
-		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
+		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) { //TODO stop thread when all info required is gotten rather than forcefully aborting
+			if (GetLastError() == ERROR_OPERATION_ABORTED) {
+				WaitForSingleObject(dadosPassag->Passageiro->hEvent, INFINITE);
+				continue;
+			}
+				
 			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
 			dadosPassag->Passageiro->terminar = 1;
 			continue;
@@ -150,9 +155,9 @@ int _tmain(int argc, LPTSTR argv[]) {
 	if (hThread == NULL)
 		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	//hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
-	//if (hHBCThread == NULL)
-	//	error(ERR_CREATE_THREAD, EXIT_FAILURE);
+	hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
+	if (hHBCThread == NULL)
+		error(ERR_CREATE_THREAD, EXIT_FAILURE);
 
 	hNPThread = CreateThread(NULL, 0, ThreadNewPassag, &dados, 0, NULL);
 	if (hNPThread == NULL)

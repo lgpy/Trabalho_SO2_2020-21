@@ -8,7 +8,6 @@ DWORD WINAPI ThreadResponseHandler(LPVOID param) {
 
 	while (!dados->terminar)
 	{
-		_tprintf(TEXT("Reading\n"));
 		if (!ReadFile(dados->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
 			dados->terminar = 1;
@@ -21,7 +20,10 @@ DWORD WINAPI ThreadResponseHandler(LPVOID param) {
 			_tprintf(TEXT("Embarcou\n"));
 			break;
 		case RES_UPDATEDPOS:
-			_tprintf(TEXT("Nova Posicao\n"));
+			_tprintf(TEXT("Posicao: %d %d\n"), res.Coord.x, res.Coord.y);
+			break;
+		case RES_DISEMBARKED:
+			_tprintf(TEXT("Desembarcou\n"));
 			break;
 		default:
 			break;
