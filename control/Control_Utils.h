@@ -31,6 +31,7 @@ typedef struct {
 
 	int Seats;
 	int Speed;
+	int nPassengers;
 
 	Coords Coord;
 	Coords Dest;
@@ -57,8 +58,8 @@ typedef struct {
 
 	HANDLE hPipe;
 	HANDLE hThread;
-	HANDLE hEvent;
-	int terminar;
+	BOOL ready;
+	BOOL terminar;
 } Passageiro;
 
 
@@ -85,22 +86,29 @@ typedef struct {
 	Passageiro* Passageiro;
 } DadosPassag;
 
+
+DWORD WINAPI ThreadConsumidor(LPVOID param);
+DWORD WINAPI ThreadHBChecker(LPVOID param);
+
 void error(const TCHAR* msg, int exit_code);
 DWORD getRegVal(const TCHAR* ValueName, const int Default);
 void init_dados(Dados* dados, HANDLE* hFileMap);
 void PrintInfo(Dados* dados);
 void PrintMenu(Dados* dados);
 void Handler(Dados* dados, CelulaBuffer* cel);
+
+int AddAviao(Dados* dados, AviaoOriginator* newAviao);
 int FindAviaobyPId(Dados* dados, DWORD PId);
+void RemoveAviao(Dados* dados, int index);
+
+int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
 int FindAeroportobyName(Dados* dados, TCHAR* name);
 int AeroportoisIsolated(Dados* dados, Coords coords);
-int AddAviao(Dados* dados, AviaoOriginator* newAviao);
-int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
-void RemoveAviao(Dados* dados, int index);
-DWORD WINAPI ThreadConsumidor(LPVOID param);
-DWORD WINAPI ThreadHBChecker(LPVOID param);
+
 int AddPassageiro(Dados* dados, Passageiro* newPassageiro);
 void RemovePassageiro(Dados* dados, int index);
 int Embark(Dados* dados, Aviao* aviao);
 int Disembark(Dados* dados, Aviao* aviao);
+void Crash(Dados* dados, Aviao* aviao);
+int ReachedDest(Dados* dados, Aviao* aviao);
 void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate);

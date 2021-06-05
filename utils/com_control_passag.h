@@ -15,6 +15,8 @@
 #define RES_EMBARKED 3
 #define RES_UPDATEDPOS 4
 #define RES_DISEMBARKED 5
+#define RES_REACHEDDEST 6
+#define RES_CRASHED 7
 
 typedef struct {
 	DWORD PId;

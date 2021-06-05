@@ -25,6 +25,14 @@ DWORD WINAPI ThreadResponseHandler(LPVOID param) {
 		case RES_DISEMBARKED:
 			_tprintf(TEXT("Desembarcou\n"));
 			break;
+		case RES_REACHEDDEST:
+			_tprintf(TEXT("Chegou ao destino\n"));
+			dados->terminar = 1;
+			break;
+		case RES_CRASHED:
+			_tprintf(TEXT("Aviao crashou\n"));
+			dados->terminar = 1;
+			break;
 		default:
 			break;
 		}
@@ -62,7 +70,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	//_fgetts(buffer, MAX_BUFFER, stdin);
 	//newAeroporto.Coord.x = _tstoi(buffer);
 	
-
+	DisconnectNamedPipe(dados.hPipe);
 	
 	return EXIT_SUCCESS;
 }

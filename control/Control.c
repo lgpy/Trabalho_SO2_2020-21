@@ -16,12 +16,7 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 
 	while (!dadosPassag->Passageiro->terminar)
 	{
-		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) { //TODO stop thread when all info required is gotten rather than forcefully aborting
-			if (GetLastError() == ERROR_OPERATION_ABORTED) {
-				WaitForSingleObject(dadosPassag->Passageiro->hEvent, INFINITE);
-				continue;
-			}
-				
+		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
 			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
 			dadosPassag->Passageiro->terminar = 1;
 			continue;
@@ -47,8 +42,9 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 		case REQ_UPDATE:
 			CopyMemory(&dadosPassag->Passageiro->Coord, &req.Originator.Coord, sizeof(Coords));
 			CopyMemory(&dadosPassag->Passageiro->Dest, &req.Originator.Dest, sizeof(Coords));
+			dadosPassag->Passageiro->ready = TRUE;
+			dadosPassag->Passageiro->terminar = TRUE;
 			break;
-			
 		default:
 			break;
 		}
@@ -74,7 +70,7 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 		hPipe = CreateNamedPipe(NamedPipe_NAME,
 			PIPE_ACCESS_DUPLEX,
 			PIPE_WAIT | PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE,
-			10,//TODO Change this?
+			PIPE_UNLIMITED_INSTANCES,
 			sizeof(ResponseCP),
 			sizeof(RequestCP),
 			1000,

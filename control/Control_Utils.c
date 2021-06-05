@@ -90,6 +90,7 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 			if (difftime(timenow, dados->Avioes[i].lastHB) > 3)
 			{
 				_tprintf(TEXT("%lu's heartbeat has stopped\n"), dados->Avioes[i].PId);
+				Crash(dados, &dados->Avioes[i]);
 				RemoveAviao(dados, i);
 			}
 		}
@@ -155,7 +156,7 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 	case REQ_REACHEDDES:
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
-		_tprintf(TEXT("%lu reached its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, Disembark(dados, &dados->Avioes[index]));
+		_tprintf(TEXT("%lu reached its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, ReachedDest(dados, &dados->Avioes[index]));
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_EMBARK:
@@ -200,7 +201,7 @@ void PrintInfo(Dados* dados) { // Need Mutex
 	_tprintf(TEXT("Avioes\n"));
 	WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 	for (i = 0; i < dados->nAvioes; i++)
-		_tprintf(TEXT("\t%5lu: %3d, %3d | %3d, %3d | %2d/s | %3d seats\n"), dados->Avioes[i].PId, dados->Avioes[i].Coord.x, dados->Avioes[i].Coord.y, dados->Avioes[i].Dest.x, dados->Avioes[i].Dest.y, dados->Avioes[i].Speed, dados->Avioes[i].Seats);
+		_tprintf(TEXT("\t%5lu: %3d, %3d | %3d, %3d | %2d/s | %d/%d seats\n"), dados->Avioes[i].PId, dados->Avioes[i].Coord.x, dados->Avioes[i].Coord.y, dados->Avioes[i].Dest.x, dados->Avioes[i].Dest.y, dados->Avioes[i].Speed, dados->Avioes[i].nPassengers, dados->Avioes[i].Seats);
 	ReleaseMutex(dados->hMutexAvioes);
 
 	_tprintf(TEXT("\nAeroportos\n"));
@@ -212,7 +213,10 @@ void PrintInfo(Dados* dados) { // Need Mutex
 	_tprintf(TEXT("\nPassageiros\n"));
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
-		_tprintf(TEXT("\t%s\n"), dados->Passageiros[i].Name);
+		if (dados->Passageiros[i].AviaoPId == NULL)
+			_tprintf(TEXT("\t%5s | %3d, %3d | %3d, %3d\n"), dados->Passageiros[i].Name, dados->Passageiros[i].Coord.x, dados->Passageiros[i].Coord.y, dados->Passageiros[i].Dest.x, dados->Passageiros[i].Dest.y);
+		else
+			_tprintf(TEXT("\t%5s | %5lu\n"), dados->Passageiros[i].Name, dados->Passageiros[i].AviaoPId);
 	ReleaseMutex(dados->hMutexPassageiros);
 }
 void PrintMenu(Dados* dados) {
@@ -410,20 +414,18 @@ int AddPassageiro(Dados* dados, Passageiro* newPassageiro) {
 		dados->Passageiros = newPointer;
 		dados->MAX_PASSAGEIROS++;
 	}
-	newPassageiro->terminar = 0;
+	newPassageiro->terminar = FALSE;
+	newPassageiro->ready = TRUE;
 	newPassageiro->AviaoPId = NULL;
-	newPassageiro->hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	CopyMemory(&dados->Passageiros[dados->nPassageiros], newPassageiro, sizeof(Passageiro));
 	return dados->nPassageiros++;
 }
 void RemovePassageiro(Dados* dados, int index) {
-	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	int i = index;
 	//TODO free() stuff
 	for (i; i < dados->nPassageiros - 1; i++)
 		dados->Passageiros[i] = dados->Passageiros[i + 1];
 	dados->nPassageiros--;
-	ReleaseMutex(dados->hMutexPassageiros);
 }
 
 int Embark(Dados* dados, Aviao* aviao) {
@@ -431,20 +433,27 @@ int Embark(Dados* dados, Aviao* aviao) {
 	ResponseCP res;
 	res.Type = RES_EMBARKED;
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-	for (i = 0; i < dados->nPassageiros; i++)
-		if (dados->Passageiros[i].Coord.x == aviao->Coord.x && dados->Passageiros[i].Coord.y == aviao->Coord.y)
-			if (dados->Passageiros[i].Dest.x == aviao->Dest.x && dados->Passageiros[i].Dest.y == aviao->Dest.y)
-				if (dados->Passageiros[i].AviaoPId == NULL)
-				{
-					dados->Passageiros[i].AviaoPId = aviao->PId;
-					CancelIoEx(dados->Passageiros[i].hPipe, NULL);
-					if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
-						_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-						dados->Passageiros[i].terminar = 1;
+	for (i = 0; i < dados->nPassageiros; i++) {
+		if (aviao->nPassengers >= aviao->Seats)
+			break;
+
+		if (dados->Passageiros[i].ready)
+			if (dados->Passageiros[i].Coord.x == aviao->Coord.x && dados->Passageiros[i].Coord.y == aviao->Coord.y)
+				if (dados->Passageiros[i].Dest.x == aviao->Dest.x && dados->Passageiros[i].Dest.y == aviao->Dest.y)
+					if (dados->Passageiros[i].AviaoPId == NULL)
+					{
+						dados->Passageiros[i].AviaoPId = aviao->PId;
+						if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+							_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+							RemovePassageiro(dados, i);
+							aviao->nPassengers--;
+							continue;
+						}
+						count++;
+						aviao->nPassengers++;
 					}
-					SetEvent(dados->Passageiros[i].hEvent);
-					count++;
-				}
+	}
+		
 	ReleaseMutex(dados->hMutexPassageiros);
 	return count;
 }
@@ -459,14 +468,58 @@ int Disembark(Dados* dados, Aviao* aviao) {
 		if (dados->Passageiros[i].AviaoPId == aviao->PId)
 		{
 			dados->Passageiros[i].AviaoPId = NULL;
-			CancelIoEx(dados->Passageiros[i].hPipe, NULL);
 			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-				dados->Passageiros[i].terminar = 1;
+				RemovePassageiro(dados, i);
+				aviao->nPassengers--;
+				continue;
 			}
-			SetEvent(dados->Passageiros[i].hEvent);
 			count++;
 		}
+	aviao->nPassengers = 0;
+	ReleaseMutex(dados->hMutexPassageiros);
+	return count;
+}
+
+void Crash(Dados* dados, Aviao* aviao) {
+	int i;
+	ResponseCP res;
+	res.Type = RES_CRASHED;
+
+	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
+	for (i = 0; i < dados->nPassageiros; i++)
+		if (dados->Passageiros[i].AviaoPId == aviao->PId)
+		{
+			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+				RemovePassageiro(dados, i);
+				continue;
+			}
+			RemovePassageiro(dados, i);
+		}
+	aviao->nPassengers = 0;
+	ReleaseMutex(dados->hMutexPassageiros);
+}
+
+int ReachedDest(Dados* dados, Aviao* aviao) {
+	int count = 0, i;
+	ResponseCP res;
+	res.Type = RES_REACHEDDEST;
+
+	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
+	for (i = 0; i < dados->nPassageiros; i++)
+		if (dados->Passageiros[i].AviaoPId == aviao->PId)
+		{
+			dados->Passageiros[i].AviaoPId = NULL;
+			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
+				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
+				RemovePassageiro(dados, i);
+				aviao->nPassengers--;
+				continue;
+			}
+			count++;
+		}
+	aviao->nPassengers = 0;
 	ReleaseMutex(dados->hMutexPassageiros);
 	return count;
 }
@@ -480,12 +533,13 @@ void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate) {
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
 		if (dados->Passageiros[i].AviaoPId == PId) {
-			CancelIoEx(dados->Passageiros[i].hPipe, NULL);
 			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-				dados->Passageiros[i].terminar = 1;
+				RemovePassageiro(dados, i);
+				WaitForSingleObject(dados->hMutexAvioes, INFINITE);
+				dados->Avioes[FindAviaobyPId(dados, PId)].nPassengers--;
+				ReleaseMutex(dados->hMutexAvioes);
 			}
-			SetEvent(dados->Passageiros[i].hEvent);
 		}
 	ReleaseMutex(dados->hMutexPassageiros);
 }
