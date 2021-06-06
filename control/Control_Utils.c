@@ -6,12 +6,12 @@ void init_dados(Dados* dados, HANDLE* hFileMap) {
 	// Get/Set Registry keys
 	dados->MAX_AVIOES = getRegVal(REG_MAX_AVIOES_KEY_NAME, 10);
 	dados->MAX_AEROPORTOS = getRegVal(REG_MAX_AEROPORTOS_KEY_NAME, 5);
-	dados->MAX_PASSAGEIROS = 1;
+	dados->MAX_PASSAGEIROS = PIPE_UNLIMITED_INSTANCES;
 
 	// Allocate memory for MAX vals
 	dados->Avioes = malloc(sizeof(Aviao) * dados->MAX_AVIOES);
 	dados->Aeroportos = malloc(sizeof(Aeroporto) * dados->MAX_AEROPORTOS);
-	dados->Passageiros = malloc(sizeof(Passageiro));
+	dados->Passageiros = malloc(sizeof(Passageiro) * dados->MAX_PASSAGEIROS);
 	if (dados->Avioes == NULL || dados->Aeroportos == NULL || dados->Passageiros == NULL)
 		error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
 
@@ -423,27 +423,23 @@ int FindPassageirobyPId(Dados* dados, DWORD PId) {
 }
 
 int AddPassageiro(Dados* dados, HANDLE hPipe) {
-	Passageiro* newPointer;
 	if (dados->nPassageiros < dados->MAX_PASSAGEIROS) {
-		newPointer = realloc(dados->Passageiros, sizeof(Passageiro) * (dados->nPassageiros + 1)); // check if reallocated
-		if (newPointer == NULL) {
-			_tprintf(TEXT("%s\n"), ERR_INSUFFICIENT_MEMORY);
-			return -1;
-		}
-		dados->Passageiros = newPointer;
-		dados->MAX_PASSAGEIROS++;
+		dados->Passageiros[dados->nPassageiros].ready = FALSE;
+		dados->Passageiros[dados->nPassageiros].AviaoPId = NULL;
+		dados->Passageiros[dados->nPassageiros].hPipe = hPipe;
+		return dados->nPassageiros++;
 	}
-	dados->Passageiros[dados->nPassageiros].ready = FALSE;
-	dados->Passageiros[dados->nPassageiros].AviaoPId = NULL;
-	dados->Passageiros[dados->nPassageiros].hPipe = hPipe;
-	return dados->nPassageiros++;
+	return -1;
 }
 
 void RemovePassageiro(Dados* dados, int index) {
 	int i = index;
-	CloseHandle(dados->Passageiros[i].hEvent);
-	DisconnectNamedPipe(dados->Passageiros[i].hPipe);
-	CloseHandle(dados->Passageiros[i].hPipe);
+	if (dados->Passageiros[i].hEvent != NULL)
+		CloseHandle(dados->Passageiros[i].hEvent);
+	if (dados->Passageiros[i].hPipe != NULL) {
+		DisconnectNamedPipe(dados->Passageiros[i].hPipe);
+		CloseHandle(dados->Passageiros[i].hPipe);
+	}
 	for (i; i < dados->nPassageiros - 1; i++)
 		dados->Passageiros[i] = dados->Passageiros[i + 1];
 	dados->nPassageiros--;

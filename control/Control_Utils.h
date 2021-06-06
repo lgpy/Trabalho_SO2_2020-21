@@ -74,7 +74,7 @@ typedef struct {
 
 	Aviao* Avioes;
 	Aeroporto* Aeroportos;
-	Passageiro* Passageiros; //TODO add mutex for this?
+	Passageiro* Passageiros;
 	HANDLE hMutexAvioes;
 	HANDLE hMutexAeroportos;
 	HANDLE hMutexPassageiros;
