@@ -28,6 +28,7 @@
 
 typedef struct {
 	DWORD PId;
+	BOOL ready;
 
 	int Seats;
 	int Speed;

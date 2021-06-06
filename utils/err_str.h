@@ -26,3 +26,6 @@
 #define ERR_READ_PIPE TEXT("Error while reading a named pipe.")
 #define ERR_CREATE_PIPE TEXT("Error while creating a named pipe.")
 
+
+#define ERR_CREATE_WAITABLETIMER TEXT("Error while creating waitable timer.")
+#define ERR_SET_WAITABLETIMER TEXT("Error while setting waitable timer.")
