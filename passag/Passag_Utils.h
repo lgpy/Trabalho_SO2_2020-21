@@ -15,10 +15,10 @@
 
 typedef struct {
 	HANDLE hRHThread;
-
+	HANDLE hEvent;
 	HANDLE hPipe;
 	PassagOriginator me;
-	int terminar;
+	BOOL terminar;
 } Data;
 
 void error(const TCHAR* msg, int exit_code);

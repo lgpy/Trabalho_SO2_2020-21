@@ -3,6 +3,7 @@
 #include "global.h"
 
 #define NamedPipe_NAME TEXT("\\\\.\\pipe\\NPipeCP")
+#define Event_CP_PATTERN TEXT("PassagEvent-%lu")
 #define MAX_Passag_NAME 30
 
 #define REQ_INIT 0
@@ -15,6 +16,8 @@
 #define RES_EMBARKED 3
 #define RES_UPDATEDPOS 4
 #define RES_DISEMBARKED 5
+#define RES_REACHEDDEST 6
+#define RES_CRASHED 7
 
 typedef struct {
 	DWORD PId;
