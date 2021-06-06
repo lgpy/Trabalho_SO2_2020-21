@@ -58,8 +58,8 @@ typedef struct {
 
 	HANDLE hPipe;
 	HANDLE hThread;
+	HANDLE hEvent;
 	BOOL ready;
-	BOOL terminar;
 } Passageiro;
 
 
@@ -106,6 +106,7 @@ int FindAeroportobyName(Dados* dados, TCHAR* name);
 int AeroportoisIsolated(Dados* dados, Coords coords);
 
 int AddPassageiro(Dados* dados, HANDLE hPipe);
+int FindPassageirobyPId(Dados* dados, DWORD PId);
 void RemovePassageiro(Dados* dados, int index);
 int Embark(Dados* dados, Aviao* aviao);
 int Disembark(Dados* dados, Aviao* aviao);

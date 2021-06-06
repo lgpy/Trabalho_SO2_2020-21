@@ -61,16 +61,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	while (!dados.terminar) {
 		_fgetts(buffer, MAX_BUFFER, stdin);
-		if (_tcscmp(buffer, "fim") == 0)
-			dados.terminar = 1;
+		if (_tcscmp(buffer, TEXT("fim\n")) == 0) {
+			dados.terminar = TRUE;
+		}
 	}
 
-	//e, opcionalmente, o tempo(em segundos) que fica a aguardar até embarcar
-	//_tprintf(TEXT("X: "));
-	//_fgetts(buffer, MAX_BUFFER, stdin);
-	//newAeroporto.Coord.x = _tstoi(buffer);
-	
-	DisconnectNamedPipe(dados.hPipe);
-	
+	SetEvent(dados.hEvent);	
 	return EXIT_SUCCESS;
 }

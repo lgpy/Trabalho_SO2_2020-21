@@ -404,6 +404,16 @@ int AeroportoisIsolated(Dados* dados, Coords coords) {
 }
 
 //PASSAGEIROS
+int FindPassageirobyPId(Dados* dados, DWORD PId) {
+	int i;
+	for (i = 0; i < dados->nPassageiros; i++)
+		if (dados->Passageiros[i].PId == PId) {
+			ReleaseMutex(dados->hMutexPassageiros);
+			return i;
+		}
+	return -1;
+}
+
 int AddPassageiro(Dados* dados, HANDLE hPipe) {
 	Passageiro* newPointer;
 	if (dados->nPassageiros < dados->MAX_PASSAGEIROS) {
@@ -415,15 +425,17 @@ int AddPassageiro(Dados* dados, HANDLE hPipe) {
 		dados->Passageiros = newPointer;
 		dados->MAX_PASSAGEIROS++;
 	}
-	dados->Passageiros[dados->nPassageiros].terminar = FALSE;
 	dados->Passageiros[dados->nPassageiros].ready = FALSE;
 	dados->Passageiros[dados->nPassageiros].AviaoPId = NULL;
 	dados->Passageiros[dados->nPassageiros].hPipe = hPipe;
 	return dados->nPassageiros++;
 }
+
 void RemovePassageiro(Dados* dados, int index) {
 	int i = index;
-	//TODO free() stuff
+	CloseHandle(dados->Passageiros[i].hEvent);
+	DisconnectNamedPipe(dados->Passageiros[i].hPipe);
+	CloseHandle(dados->Passageiros[i].hPipe);
 	for (i; i < dados->nPassageiros - 1; i++)
 		dados->Passageiros[i] = dados->Passageiros[i + 1];
 	dados->nPassageiros--;

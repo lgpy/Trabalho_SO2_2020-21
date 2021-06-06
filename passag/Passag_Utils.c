@@ -6,6 +6,7 @@ void error(const TCHAR* msg, int exit_code) {
 }
 
 void init(Data* dados) {
+	TCHAR buffer[MAX_BUFFER];
 	RequestCP req;
 	ResponseCP res;
 
@@ -22,6 +23,12 @@ void init(Data* dados) {
 
 	dados->me.PId = GetCurrentProcessId();
 	dados->terminar = 0;
+
+
+	_stprintf_s(buffer, MAX_BUFFER, Event_CP_PATTERN, dados->me.PId);
+	dados->hEvent = CreateEvent(NULL, FALSE, FALSE, buffer);
+	if (dados->hEvent == NULL)
+		error(ERR_CREATE_EVENT, EXIT_FAILURE);
 
 	_tprintf(TEXT("Nome: "));
 	_fgetts(dados->me.Name, 30, stdin);
@@ -69,7 +76,9 @@ void init(Data* dados) {
 			error(ERR_READ_PIPE, EXIT_FAILURE);
 		if (res.Type == RES_AIRPORT_NOTFOUND)
 			_tprintf(TEXT("Aeroporto Invalido!\n"));
-	} while (res.Type == RES_AIRPORT_NOTFOUND);
+		else if (res.Coord.x == dados->me.Coord.x && res.Coord.y == dados->me.Coord.y)
+			_tprintf(TEXT("Escolha outro Aeroporto!\n"));
+	} while (res.Type == RES_AIRPORT_NOTFOUND || (res.Coord.x == dados->me.Coord.x && res.Coord.y == dados->me.Coord.y));
 
 	dados->me.Dest.x = res.Coord.x;
 	dados->me.Dest.y = res.Coord.y;

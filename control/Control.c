@@ -2,16 +2,16 @@
 
 DWORD WINAPI ThreadPassag(LPVOID param) {
 	DadosPassag* dadosPassag = (DadosPassag*)param;
-	int airportindex;
-
+	int airportindex, index, terminar = FALSE;
+	TCHAR buffer[MAX_BUFFER];
 	RequestCP req;
 	ResponseCP res;
 
-	while (!dadosPassag->Passageiro->terminar)
+	while (!terminar)
 	{
 		if (!ReadFile(dadosPassag->Passageiro->hPipe, &req, sizeof(RequestCP), NULL, NULL)) {
-			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);
-			dadosPassag->Passageiro->terminar = 1;
+			_tprintf(TEXT("%s\n"), ERR_READ_PIPE);//TODO remove passageiro?
+			terminar = TRUE;
 			continue;
 		}
 
@@ -20,10 +20,27 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 		case REQ_INIT:
 			dadosPassag->Passageiro->PId = req.Originator.PId;
 			_tcscpy_s(dadosPassag->Passageiro->Name, _countof(dadosPassag->Passageiro->Name), req.Originator.Name);
+			_stprintf_s(buffer, MAX_BUFFER, Event_CP_PATTERN, dadosPassag->Passageiro->PId);
+			dadosPassag->Passageiro->hEvent = OpenEvent(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, buffer);
+			if (dadosPassag->Passageiro->hEvent == NULL) {
+				_tprintf(TEXT("%s\n"), ERR_CREATE_EVENT);
+				terminar = TRUE;
+				WaitForSingleObject(dadosPassag->dados->hMutexPassageiros, INFINITE);
+				index = FindPassageirobyPId(dadosPassag->dados, dadosPassag->Passageiro->PId);
+				if (index != -1)
+					RemovePassageiro(dadosPassag->dados, index);
+				ReleaseMutex(dadosPassag->dados->hMutexPassageiros);
+				break;
+			}
 			res.Type = RES_ADDED;
 			if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-				dadosPassag->Passageiro->terminar = 1;
+				terminar = TRUE;
+				WaitForSingleObject(dadosPassag->dados->hMutexPassageiros, INFINITE);
+				index = FindPassageirobyPId(dadosPassag->dados, dadosPassag->Passageiro->PId);
+				if (index != -1)
+					RemovePassageiro(dadosPassag->dados, index);
+				ReleaseMutex(dadosPassag->dados->hMutexPassageiros);
 			}
 			break;
 		case REQ_AIRPORT:
@@ -38,21 +55,31 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 			}
 			if (!WriteFile(dadosPassag->Passageiro->hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
-				dadosPassag->Passageiro->terminar = 1;
+				terminar = TRUE;
+				WaitForSingleObject(dadosPassag->dados->hMutexPassageiros, INFINITE);
+				index = FindPassageirobyPId(dadosPassag->dados, dadosPassag->Passageiro->PId);
+				if (index != -1)
+					RemovePassageiro(dadosPassag->dados, index);
+				ReleaseMutex(dadosPassag->dados->hMutexPassageiros);
 			}
 			break;
 		case REQ_UPDATE:
 			CopyMemory(&dadosPassag->Passageiro->Coord, &req.Originator.Coord, sizeof(Coords));
 			CopyMemory(&dadosPassag->Passageiro->Dest, &req.Originator.Dest, sizeof(Coords));
 			dadosPassag->Passageiro->ready = TRUE;
-			dadosPassag->Passageiro->terminar = TRUE;
+			terminar = TRUE;
 			break;
 		default:
 			break;
 		}
 	}
+	WaitForSingleObject(dadosPassag->Passageiro->hEvent, INFINITE);
+	WaitForSingleObject(dadosPassag->dados->hMutexPassageiros, INFINITE);
+	index = FindPassageirobyPId(dadosPassag->dados, dadosPassag->Passageiro->PId);
+	if (index != -1)
+		RemovePassageiro(dadosPassag->dados, index);
+	ReleaseMutex(dadosPassag->dados->hMutexPassageiros);
 	free(dadosPassag);
-	//remove if got here?
 	return 0;
 }
 

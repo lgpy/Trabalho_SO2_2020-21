@@ -3,6 +3,7 @@
 #include "global.h"
 
 #define NamedPipe_NAME TEXT("\\\\.\\pipe\\NPipeCP")
+#define Event_CP_PATTERN TEXT("PassagEvent-%lu")
 #define MAX_Passag_NAME 30
 
 #define REQ_INIT 0
