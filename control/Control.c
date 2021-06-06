@@ -120,19 +120,17 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 		dadosPassag = malloc(sizeof(DadosPassag));
 		if (dadosPassag == NULL)
 			error(ERR_INSUFFICIENT_MEMORY, EXIT_FAILURE);
-		HANDLE temp = hPipe;
 		WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
-		index = AddPassageiro(dados, temp);
+		index = AddPassageiro(dados, hPipe);
 		if (index == -1) {
 			continue;
 			ReleaseMutex(dados->hMutexPassageiros);
 		}
-
 		dadosPassag->Passageiro = &dados->Passageiros[index];
 		dadosPassag->dados = dados;
 
-		dados->Passageiros[dados->nPassageiros].hThread = CreateThread(NULL, 0, ThreadPassag, dadosPassag, 0, NULL);
-		if (dados->Passageiros[dados->nPassageiros].hThread == NULL) {
+		dados->Passageiros[index].hThread = CreateThread(NULL, 0, ThreadPassag, dadosPassag, 0, NULL);
+		if (dados->Passageiros[index].hThread == NULL) {
 			_tprintf(TEXT("%s\n"), ERR_CREATE_THREAD);
 			RemovePassageiro(dados, index);
 		}

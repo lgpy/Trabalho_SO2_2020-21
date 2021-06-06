@@ -5,7 +5,7 @@ DWORD WINAPI ThreadWaiting(LPVOID param) {
 	WaitForSingleObject(dados->hWTimer, INFINITE);
 	dados->terminar = TRUE;
 	SetEvent(dados->hEvent);
-	_tprintf(TEXT("tempo de espera terminou"));
+	_tprintf(TEXT("Tempo de espera terminou!\n"));
 	return 0;
 }
 
