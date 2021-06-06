@@ -89,7 +89,8 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 		{
 			if (difftime(timenow, dados->Avioes[i].lastHB) > 3)
 			{
-				_tprintf(TEXT("%lu's heartbeat has stopped\n"), dados->Avioes[i].PId);
+				if (dados->Avioes[i].ready == TRUE)
+					_tprintf(TEXT("%lu's heartbeat has stopped\n"), dados->Avioes[i].PId);
 				Crash(dados, &dados->Avioes[i]);
 				RemoveAviao(dados, i);
 			}
@@ -125,10 +126,16 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 			}
 		}
 		WaitForSingleObject(dados->Avioes[index].hMutexMemPar, INFINITE);
+
+		if (dados->Avioes[index].ready == FALSE)
+			dados->Avioes[index].lastHB = time(NULL);
+
 		if (airportindex == -1) {
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_NOTFOUND;
 		}
 		else {
+			if (dados->Avioes[index].ready == FALSE)
+				dados->Avioes[index].ready = TRUE;
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_FOUND;
 			dados->Avioes[index].memPar->Coord.x = dados->Aeroportos[airportindex].Coord.x;
 			dados->Avioes[index].memPar->Coord.y = dados->Aeroportos[airportindex].Coord.y;
@@ -302,6 +309,7 @@ int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
 	WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 	if (dados->nAvioes < dados->MAX_AVIOES && dados->aceitarAvioes == TRUE)
 	{
+		dados->Avioes[dados->nAvioes].ready = FALSE;
 		dados->Avioes[dados->nAvioes].PId = newAviao->PId;
 		dados->Avioes[dados->nAvioes].Seats = newAviao->Seats;
 		dados->Avioes[dados->nAvioes].Speed = newAviao->Speed;
