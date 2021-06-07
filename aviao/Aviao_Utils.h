@@ -19,7 +19,7 @@
 #define STATE_AEROPORTO 0
 #define STATE_VIAGEM 1
 
-#define DEBUG
+//#define DEBUG
 
 typedef struct {
 	BufferCircular* MemPar_AC; // shared

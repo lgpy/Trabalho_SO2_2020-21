@@ -16,8 +16,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	newAeroporto.Coord.y = 0;
 	CopyMemory(newAeroporto.Name, TEXT("a1"), 3 * sizeof(TCHAR));
 	AddAeroporto(&dados, &newAeroporto);
-	newAeroporto.Coord.x = 999;
-	newAeroporto.Coord.y = 999;
+	newAeroporto.Coord.x = 100;
+	newAeroporto.Coord.y = 100;
 	CopyMemory(newAeroporto.Name, TEXT("a2"), 3 * sizeof(TCHAR));
 	AddAeroporto(&dados, &newAeroporto);
 #endif // DEBUG
@@ -65,8 +65,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
-		600,
-		600,
+		1010,
+		1010,
 		(HWND)HWND_DESKTOP,
 		(HMENU)NULL,
 		(HINSTANCE)hInst,
@@ -128,7 +128,8 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 	static BOOL Hover = FALSE;
 	static int HoverxPos, HoveryPos;
-	static TCHAR buffer[MAX_BUFFER];
+	static TCHAR hoverbuffer[100];
+	static TCHAR clickbuffer[100];
 
 	dados = (Dados*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
@@ -138,6 +139,11 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		break;
 
 	case WM_MOUSEMOVE:
+		if (Hover)
+		{
+			Hover = FALSE;
+			InvalidateRect(dados->gui.hWnd, NULL, FALSE);
+		}
 		tme.cbSize = sizeof(TRACKMOUSEEVENT);
 		tme.dwFlags = TME_HOVER;
 		tme.hwndTrack = hWnd;
@@ -153,23 +159,31 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		for (i = 0; i < dados->nAvioes; i++) {
-			xPosT = translateCoord(dados->Avioes[i].Coord.x);
-			yPosT = translateCoord(dados->Avioes[i].Coord.y);
-			if (xPos >= xPosT && xPos <= xPosT + 14 && yPos >= yPosT && yPos <= yPosT + 14) {
-				aviaoTemp = &dados->Avioes[i];
-				break;
+			if (dados->Avioes[i].state == AVIAO_STATE_FLYING)
+			{
+				xPosT = translateCoord(dados->Avioes[i].Coord.x);
+				yPosT = translateCoord(dados->Avioes[i].Coord.y);
+				if (xPos >= xPosT && xPos <= xPosT + 14 && yPos >= yPosT && yPos <= yPosT + 14) {
+					aviaoTemp = &dados->Avioes[i];
+					_stprintf_s(hoverbuffer, 100, TEXT("ID: %lu\nOrigem: %s\nDestino: %s\nPassageiros: %d"),
+						aviaoTemp->PId,
+						dados->Aeroportos[FindAeroportobyCoords(dados, aviaoTemp->Origin)].Name,
+						dados->Aeroportos[FindAeroportobyCoords(dados, aviaoTemp->Dest)].Name,
+						aviaoTemp->nPassengers);
+					break;
+				}
 			}
 		}
 		ReleaseMutex(dados->hMutexAvioes);
 
+		
 		if (aviaoTemp != NULL)
 		{
-			_stprintf_s(buffer, MAX_BUFFER, TEXT("%lu"), aviaoTemp->PId);
 			Hover = TRUE;
 			HoverxPos = xPos;
 			HoveryPos = yPos;
+			InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 		}
-		InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 		break;
 
 
@@ -193,7 +207,8 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 		if (aeroportoTemp != NULL)
 		{
-			MessageBox(hWnd, aeroportoTemp->Name, aeroportoTemp->Name, MB_OK | MB_ICONINFORMATION);
+			_stprintf_s(clickbuffer, 100, TEXT("Nome: %s\nAvioes: %d\nPassageiros: %d"), aeroportoTemp->Name, aeroportoTemp->nAvioes, aeroportoTemp->nPassageiros);
+			MessageBox(hWnd, clickbuffer, aeroportoTemp->Name, MB_OK | MB_ICONINFORMATION);
 		}
 		break;
 
@@ -226,8 +241,7 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			GetClientRect(hWnd, &rectHover);
 			rectHover.left = HoverxPos;
 			rectHover.top = HoveryPos;
-			DrawText(dados->gui.memDC, buffer, _tcslen(buffer), &rectHover, DT_NOCLIP);
-			Hover = FALSE;
+			DrawText(dados->gui.memDC, hoverbuffer, _tcslen(hoverbuffer), &rectHover, DT_NOCLIP);
 		}
 
 		BitBlt(hdc, rect.left, rect.top, rect.right, rect.bottom, dados->gui.memDC, 0, 0, SRCCOPY);
@@ -251,5 +265,5 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 }
 
 int translateCoord(int coord) {
-	return (coord + 1) / 2;
+	return coord + 1;
 }

@@ -89,7 +89,7 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 		{
 			if (difftime(timenow, dados->Avioes[i].lastHB) > 3)
 			{
-				if (dados->Avioes[i].ready == TRUE)
+				if (dados->Avioes[i].state != AVIAO_STATE_INIT)
 					_tprintf(TEXT("%lu's heartbeat has stopped\n"), dados->Avioes[i].PId);
 				Crash(dados, &dados->Avioes[i]);
 				RemoveAviao(dados, i);
@@ -144,6 +144,7 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 					RemovePassageiro(dadosPassag->dados, index);
 				ReleaseMutex(dadosPassag->dados->hMutexPassageiros);
 			}
+			dadosPassag->Passageiro->state = PASSAG_STATE_READY;
 			break;
 		case REQ_AIRPORT:
 			airportindex = FindAeroportobyName(dadosPassag->dados, req.buffer);
@@ -152,6 +153,11 @@ DWORD WINAPI ThreadPassag(LPVOID param) {
 			}
 			else {
 				res.Type = RES_AIRPORT_FOUND;
+				if (dadosPassag->Passageiro->state == PASSAG_STATE_READY)
+				{
+					dadosPassag->Passageiro->state = PASSAG_STATE_WAITING;
+					dadosPassag->dados->Aeroportos[airportindex].nPassageiros++;
+				}
 				res.Coord.x = dadosPassag->dados->Aeroportos[airportindex].Coord.x;
 				res.Coord.y = dadosPassag->dados->Aeroportos[airportindex].Coord.y;
 			}
@@ -267,15 +273,13 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		}
 		WaitForSingleObject(dados->Avioes[index].hMutexMemPar, INFINITE);
 
-		if (dados->Avioes[index].ready == FALSE)
+		if (dados->Avioes[index].state == AVIAO_STATE_INIT)
 			dados->Avioes[index].lastHB = time(NULL);
 
 		if (airportindex == -1) {
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_NOTFOUND;
 		}
 		else {
-			if (dados->Avioes[index].ready == FALSE)
-				dados->Avioes[index].ready = TRUE;
 			dados->Avioes[index].memPar->rType = RES_AIRPORT_FOUND;
 			dados->Avioes[index].memPar->Coord.x = dados->Aeroportos[airportindex].Coord.x;
 			dados->Avioes[index].memPar->Coord.y = dados->Aeroportos[airportindex].Coord.y;
@@ -287,6 +291,24 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 	case REQ_UPDATEPOS:
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
+
+		switch (dados->Avioes[index].state)
+		{
+		case AVIAO_STATE_INIT:
+			airportindex = FindAeroportobyCoords(dados, cel->Originator.Coord);
+			dados->Aeroportos[airportindex].nAvioes++;
+			dados->Avioes[index].state = AVIAO_STATE_READY;
+			break;
+		case AVIAO_STATE_READY:
+			airportindex = FindAeroportobyCoords(dados, dados->Avioes[index].Coord);
+			CopyMemory(&dados->Avioes[index].Origin, &dados->Aeroportos[airportindex].Coord, sizeof(Coords));
+			dados->Aeroportos[airportindex].nAvioes--;
+			dados->Avioes[index].state = AVIAO_STATE_FLYING;
+			break;
+		default:
+			break;
+		}
+
 		dados->Avioes[index].Coord.x = cel->Originator.Coord.x;
 		dados->Avioes[index].Coord.y = cel->Originator.Coord.y;
 		ReleaseMutex(dados->hMutexAvioes);
@@ -304,6 +326,9 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 	case REQ_REACHEDDES:
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
+		airportindex = FindAeroportobyCoords(dados, dados->Avioes[index].Coord);
+		dados->Avioes[index].state = AVIAO_STATE_READY;
+		dados->Aeroportos[airportindex].nAvioes++;
 		_tprintf(TEXT("%lu reached its destination, disembarked %d passengers\n"), dados->Avioes[index].PId, ReachedDest(dados, &dados->Avioes[index]));
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
@@ -444,13 +469,14 @@ int FindAviaobyPId(Dados* dados, DWORD PId) {
 	ReleaseMutex(dados->hMutexAvioes);
 	return -1;
 }
+
 int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
 	int add = 0;
 	TCHAR buffer[MAX_BUFFER];
 	WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 	if (dados->nAvioes < dados->MAX_AVIOES && dados->aceitarAvioes == TRUE)
 	{
-		dados->Avioes[dados->nAvioes].ready = FALSE;
+		dados->Avioes[dados->nAvioes].state = AVIAO_STATE_INIT;
 		dados->Avioes[dados->nAvioes].PId = newAviao->PId;
 		dados->Avioes[dados->nAvioes].Seats = newAviao->Seats;
 		dados->Avioes[dados->nAvioes].Speed = newAviao->Speed;
@@ -490,7 +516,11 @@ int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
 	return add;
 }
 void RemoveAviao(Dados* dados, int index) {
+	int airportindex;
 	WaitForSingleObject(dados->hMutexAvioes, INFINITE);
+	airportindex = FindAeroportobyCoords(dados, dados->Avioes[index].Coord);
+	if (airportindex != -1)
+		dados->Aeroportos[airportindex].nAvioes--;
 	int i = index;
 	CloseHandle(dados->Avioes[i].hEvent);
 	UnmapViewOfFile(dados->Avioes[i].memPar);
@@ -514,6 +544,19 @@ int FindAeroportobyName(Dados* dados, TCHAR* name) {
 	ReleaseMutex(dados->hMutexAeroportos);
 	return -1;
 }
+
+int FindAeroportobyCoords(Dados* dados, Coords coords) {
+	int i;
+	WaitForSingleObject(dados->hMutexAeroportos, INFINITE);
+	for (i = 0; i < dados->nAeroportos; i++)
+		if (dados->Aeroportos[i].Coord.x == coords.x && dados->Aeroportos[i].Coord.y == coords.y) {
+			ReleaseMutex(dados->hMutexAeroportos);
+			return i;
+		}
+	ReleaseMutex(dados->hMutexAeroportos);
+	return -1;
+}
+
 int AddAeroporto(Dados* dados, Aeroporto* newAeroporto) {
 	int index;
 	if (newAeroporto->Coord.x > 999 || newAeroporto->Coord.y > 999 || newAeroporto->Coord.x < 0 || newAeroporto->Coord.y < 0)
@@ -532,6 +575,8 @@ int AddAeroporto(Dados* dados, Aeroporto* newAeroporto) {
 		}
 		dados->Aeroportos[dados->nAeroportos].Coord.x = newAeroporto->Coord.x;
 		dados->Aeroportos[dados->nAeroportos].Coord.y = newAeroporto->Coord.y;
+		dados->Aeroportos[dados->nAeroportos].nAvioes = 0;
+		dados->Aeroportos[dados->nAeroportos].nPassageiros = 0;
 		_tcscpy_s(dados->Aeroportos[dados->nAeroportos].Name, _countof(dados->Aeroportos[dados->nAeroportos].Name), newAeroporto->Name);
 		ReleaseMutex(dados->hMutexAeroportos);
 		InvalidateRect(dados->gui.hWnd, NULL, FALSE);
@@ -569,6 +614,7 @@ int FindPassageirobyPId(Dados* dados, DWORD PId) {
 
 int AddPassageiro(Dados* dados, HANDLE hPipe) {
 	if (dados->nPassageiros < dados->MAX_PASSAGEIROS) {
+		dados->Passageiros[dados->nPassageiros].state = PASSAG_STATE_INIT;
 		dados->Passageiros[dados->nPassageiros].ready = FALSE;
 		dados->Passageiros[dados->nPassageiros].AviaoPId = NULL;
 		dados->Passageiros[dados->nPassageiros].hPipe = hPipe;
@@ -578,13 +624,24 @@ int AddPassageiro(Dados* dados, HANDLE hPipe) {
 }
 
 void RemovePassageiro(Dados* dados, int index) {
-	int i = index;
-	if (dados->Passageiros[i].hEvent != NULL)
+	int i = index, airportindex;
+	if (dados->Passageiros[i].state != PASSAG_STATE_INIT)
+	{
 		CloseHandle(dados->Passageiros[i].hEvent);
-	if (dados->Passageiros[i].hPipe != NULL) {
 		DisconnectNamedPipe(dados->Passageiros[i].hPipe);
 		CloseHandle(dados->Passageiros[i].hPipe);
 	}
+
+	if (dados->Passageiros[i].state == PASSAG_STATE_WAITING)
+	{
+		airportindex = FindAeroportobyCoords(dados, dados->Passageiros[i].Coord);
+		dados->Aeroportos[airportindex].nPassageiros--;
+	}else if (dados->Passageiros[i].state == PASSAG_STATE_REACHED)
+	{
+		airportindex = FindAeroportobyCoords(dados, dados->Passageiros[i].Dest);
+		dados->Aeroportos[airportindex].nPassageiros--;
+	}
+
 	for (i; i < dados->nPassageiros - 1; i++)
 		dados->Passageiros[i] = dados->Passageiros[i + 1];
 	dados->nPassageiros--;
@@ -664,7 +721,7 @@ void Crash(Dados* dados, Aviao* aviao) {
 }
 
 int ReachedDest(Dados* dados, Aviao* aviao) {
-	int count = 0, i;
+	int count = 0, i, airportindex;
 	ResponseCP res;
 	res.Type = RES_REACHEDDEST;
 
@@ -672,6 +729,12 @@ int ReachedDest(Dados* dados, Aviao* aviao) {
 	for (i = 0; i < dados->nPassageiros; i++)
 		if (dados->Passageiros[i].AviaoPId == aviao->PId)
 		{
+			if (dados->Passageiros[i].state == PASSAG_STATE_FLYING)
+			{
+				airportindex = FindAeroportobyCoords(dados, dados->Passageiros[i].Dest);
+				dados->Passageiros[i].state = PASSAG_STATE_REACHED;
+				dados->Aeroportos[airportindex].nPassageiros++;
+			}
 			dados->Passageiros[i].AviaoPId = NULL;
 			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
@@ -687,7 +750,7 @@ int ReachedDest(Dados* dados, Aviao* aviao) {
 }
 
 void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate) {
-	int i;
+	int i, airportindex;
 	ResponseCP res;
 	res.Type = RES_UPDATEDPOS;
 	CopyMemory(&res.Coord, &toUpdate, sizeof(Coords));
@@ -695,6 +758,12 @@ void UpdateEmbarked(Dados* dados, DWORD PId, Coords toUpdate) {
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
 		if (dados->Passageiros[i].AviaoPId == PId) {
+			if (dados->Passageiros[i].state == PASSAG_STATE_WAITING)
+			{
+				airportindex = FindAeroportobyCoords(dados, dados->Passageiros[i].Coord);
+				dados->Passageiros[i].state = PASSAG_STATE_FLYING;
+				dados->Aeroportos[airportindex].nPassageiros--;
+			}
 			if (!WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL)) {
 				_tprintf(TEXT("%s\n"), ERR_WRITE_PIPE);
 				RemovePassageiro(dados, i);

@@ -27,14 +27,25 @@
 
 #define DEBUG
 
+#define AVIAO_STATE_INIT 0
+#define AVIAO_STATE_READY 1
+#define AVIAO_STATE_FLYING 2
+
+#define PASSAG_STATE_INIT 0
+#define PASSAG_STATE_READY 1
+#define PASSAG_STATE_WAITING 2
+#define PASSAG_STATE_FLYING 3
+#define PASSAG_STATE_REACHED 4
+
 typedef struct {
 	DWORD PId;
-	BOOL ready;
+	int state;
 
 	int Seats;
 	int Speed;
 	int nPassengers;
 
+	Coords Origin;
 	Coords Coord;
 	Coords Dest;
 
@@ -49,12 +60,16 @@ typedef struct {
 typedef struct {
 	TCHAR Name[30];
 	Coords Coord;
+	int nAvioes;
+	int nPassageiros;
 } Aeroporto;
 
 typedef struct {
 	DWORD PId;
+	int state;
 	TCHAR Name[MAX_Passag_NAME];
 	DWORD AviaoPId;
+
 	Coords Coord;
 	Coords Dest;
 
@@ -76,7 +91,6 @@ typedef struct {
 
 	HWND hWnd;
 	HDC memDC;
-	HDC memDCHover;
 	HBITMAP hBitmapDB;
 } GUI;
 
