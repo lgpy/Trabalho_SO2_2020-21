@@ -52,7 +52,7 @@ void init_dados(Dados* dados, HANDLE* hFileMap) {
 
 	dados->memPar->pRead = 0;
 	dados->memPar->pWrite = 0;
-	dados->terminar = 0;
+	dados->terminar = FALSE;
 }
 
 //THREADS
@@ -101,6 +101,7 @@ DWORD WINAPI ThreadHBChecker(LPVOID param) {
 
 	return 0;
 }
+
 DWORD WINAPI ThreadPassag(LPVOID param) {
 	DadosPassag* dadosPassag = (DadosPassag*)param;
 	int airportindex, index, terminar = FALSE;
@@ -289,6 +290,7 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		dados->Avioes[index].Coord.x = cel->Originator.Coord.x;
 		dados->Avioes[index].Coord.y = cel->Originator.Coord.y;
 		ReleaseMutex(dados->hMutexAvioes);
+		InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 		UpdateEmbarked(dados, dados->Avioes[index].PId, dados->Avioes[index].Coord); //TODO fix it;
 		break;
 	case REQ_UPDATEDES:
@@ -479,8 +481,10 @@ int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
 			}
 		}
 
-		if (add == 0)
+		if (add == 0) {
 			add = dados->nAvioes++; // ++dados->nAvioes
+			InvalidateRect(dados->gui.hWnd, NULL, FALSE);
+		}
 	}
 	ReleaseMutex(dados->hMutexAvioes);
 	return add;
@@ -495,6 +499,7 @@ void RemoveAviao(Dados* dados, int index) {
 		dados->Avioes[i] = dados->Avioes[i + 1];
 	dados->nAvioes--;
 	ReleaseMutex(dados->hMutexAvioes);
+	InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 }
 
 //AEROPORTOS
@@ -529,6 +534,7 @@ int AddAeroporto(Dados* dados, Aeroporto* newAeroporto) {
 		dados->Aeroportos[dados->nAeroportos].Coord.y = newAeroporto->Coord.y;
 		_tcscpy_s(dados->Aeroportos[dados->nAeroportos].Name, _countof(dados->Aeroportos[dados->nAeroportos].Name), newAeroporto->Name);
 		ReleaseMutex(dados->hMutexAeroportos);
+		InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 		return dados->nAeroportos++;
 	}
 	ReleaseMutex(dados->hMutexAeroportos);
@@ -609,7 +615,7 @@ int Embark(Dados* dados, Aviao* aviao) {
 						aviao->nPassengers++;
 					}
 	}
-		
+
 	ReleaseMutex(dados->hMutexPassageiros);
 	return count;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <windowsx.h>
 #include <tchar.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -63,6 +64,21 @@ typedef struct {
 	BOOL ready;
 } Passageiro;
 
+typedef struct {
+	HBITMAP hBmpAviao;
+	BITMAP bmpAviao;
+	HDC bmpDCAviao;
+
+	HBITMAP hBmpAeroporto;
+	BITMAP bmpAeroporto;
+	HDC bmpDCAeroporto;
+
+
+	HWND hWnd;
+	HDC memDC;
+	HDC memDCHover;
+	HBITMAP hBitmapDB;
+} GUI;
 
 typedef struct {
 	BufferCircular* memPar;
@@ -80,6 +96,8 @@ typedef struct {
 	HANDLE hMutexPassageiros;
 	int nAvioes, nAeroportos, nPassageiros;
 	int MAX_AVIOES, MAX_AEROPORTOS, MAX_PASSAGEIROS;
+
+	GUI gui;
 } Dados;
 
 typedef struct {
