@@ -11,6 +11,7 @@
 #include "com_control_aviao.h"
 #include "com_control_passag.h"
 #include "err_str.h"
+#include "resource.h"
 
 #define DEFAULT_MAX_AVIOES 10
 #define DEFAULT_MAX_AEROPORTOS 5
@@ -80,6 +81,12 @@ typedef struct {
 } Passageiro;
 
 typedef struct {
+	BOOL isActive;
+	Coords coords;
+	TCHAR buffer[100];
+} HOVEREVENT;
+
+typedef struct {
 	HBITMAP hBmpAviao;
 	BITMAP bmpAviao;
 	HDC bmpDCAviao;
@@ -111,6 +118,11 @@ typedef struct {
 	int nAvioes, nAeroportos, nPassageiros;
 	int MAX_AVIOES, MAX_AEROPORTOS, MAX_PASSAGEIROS;
 
+	HANDLE hFileMap;
+	HANDLE hThread;
+	HANDLE hHBCThread;
+	HANDLE hNPThread;
+
 	GUI gui;
 } Dados;
 
@@ -120,27 +132,43 @@ typedef struct {
 } DadosPassag;
 
 
+#include "Control_Utils.h"
+
+//INIT
+void init_dados(Dados* dados);
+
+//THREADS
 DWORD WINAPI ThreadConsumidor(LPVOID param);
 DWORD WINAPI ThreadHBChecker(LPVOID param);
+DWORD WINAPI ThreadPassag(LPVOID param);
 DWORD WINAPI ThreadNewPassag(LPVOID param);
 
-void error(const TCHAR* msg, int exit_code);
-DWORD getRegVal(const TCHAR* ValueName, const int Default);
-void init_dados(Dados* dados, HANDLE* hFileMap);
-void PrintInfo(Dados* dados);
-void PrintMenu(Dados* dados);
+//AC Handler
 void Handler(Dados* dados, CelulaBuffer* cel);
 
-int AddAviao(Dados* dados, AviaoOriginator* newAviao);
+//UTILS
+DWORD getRegVal(Dados* dados, const TCHAR* ValueName, const int Default);
+void error(Dados* dados, const TCHAR* msg, int exit_code);
+
+//GUI
+BOOL HoverEvent(Dados* dados, int xPos, int yPos, TCHAR* buffer);
+BOOL ClickEvent(Dados* dados, int xPos, int yPos, TCHAR* buffer);
+int translateCoord(int coord);
+
+//AVIOES
 int FindAviaobyPId(Dados* dados, DWORD PId);
+int AddAviao(Dados* dados, AviaoOriginator* newAviao);
 void RemoveAviao(Dados* dados, int index);
 
-int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
+//AEROPORTOS
 int FindAeroportobyName(Dados* dados, TCHAR* name);
+int FindAeroportobyCoords(Dados* dados, Coords coords);
+int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
 int AeroportoisIsolated(Dados* dados, Coords coords);
 
-int AddPassageiro(Dados* dados, HANDLE hPipe);
+//PASSAGEIROS
 int FindPassageirobyPId(Dados* dados, DWORD PId);
+int AddPassageiro(Dados* dados, HANDLE hPipe);
 void RemovePassageiro(Dados* dados, int index);
 int Embark(Dados* dados, Aviao* aviao);
 int Disembark(Dados* dados, Aviao* aviao);

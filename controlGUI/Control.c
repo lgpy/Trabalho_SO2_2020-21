@@ -2,13 +2,13 @@
 
 TCHAR szProgName[] = TEXT("Ficha8");
 LRESULT CALLBACK TrataEventos(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK TrataEventosCriarAeroporto(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam);
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow)
 {
-	HANDLE hFileMap, hThread, hHBCThread, hNPThread; // change names
 	Dados dados;
 
-	init_dados(&dados, &hFileMap);
+	init_dados(&dados);
 
 #ifdef DEBUG
 	Aeroporto newAeroporto;
@@ -22,17 +22,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	AddAeroporto(&dados, &newAeroporto);
 #endif // DEBUG
 
-	hThread = CreateThread(NULL, 0, ThreadConsumidor, &dados, 0, NULL);
-	if (hThread == NULL)
-		error(ERR_CREATE_THREAD, EXIT_FAILURE);
+	dados.hThread = CreateThread(NULL, 0, ThreadConsumidor, &dados, 0, NULL);
+	if (dados.hThread == NULL)
+		error(&dados, ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
-	if (hHBCThread == NULL)
-		error(ERR_CREATE_THREAD, EXIT_FAILURE);
+	dados.hHBCThread = CreateThread(NULL, 0, ThreadHBChecker, &dados, 0, NULL);
+	if (dados.hHBCThread == NULL)
+		error(&dados, ERR_CREATE_THREAD, EXIT_FAILURE);
 
-	hNPThread = CreateThread(NULL, 0, ThreadNewPassag, &dados, 0, NULL);
-	if (hNPThread == NULL)
-		error(ERR_CREATE_THREAD, EXIT_FAILURE);
+	dados.hNPThread = CreateThread(NULL, 0, ThreadNewPassag, &dados, 0, NULL);
+	if (dados.hNPThread == NULL)
+		error(&dados, ERR_CREATE_THREAD, EXIT_FAILURE);
 
 	HWND hWnd;
 	MSG lpMsg;
@@ -50,7 +50,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	wcApp.hIcon = LoadIcon(NULL, IDI_ASTERISK);
 	wcApp.hIconSm = LoadIcon(NULL, IDI_SHIELD);
 	wcApp.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcApp.lpszMenuName = NULL;
+	wcApp.lpszMenuName = MAKEINTRESOURCE(IDR_MENU1);
 
 	wcApp.cbClsExtra = sizeof(Dados);
 	wcApp.cbWndExtra = 0;
@@ -65,8 +65,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
-		1010,
-		1010,
+		600,
+		600,
 		(HWND)HWND_DESKTOP,
 		(HMENU)NULL,
 		(HINSTANCE)hInst,
@@ -98,7 +98,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 	ShowWindow(hWnd, nCmdShow);
 
-	UpdateWindow(hWnd);
+	//UpdateWindow(hWnd);
 
 	while (GetMessage(&lpMsg, NULL, 0, 0))
 	{
@@ -111,6 +111,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam)
 {
+	HMENU hMenu;
+	MENUITEMINFO item;
 
 	HDC hdc;
 	PAINTSTRUCT ps;
@@ -118,17 +120,12 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	static TRACKMOUSEEVENT tme;
 
 	Dados* dados;
-	Aviao* aviaoTemp;
-	Aeroporto* aeroportoTemp;
 
 	int i;
 	int xPos, yPos;
-	int xPosT;
-	int yPosT;
 
-	static BOOL Hover = FALSE;
-	static int HoverxPos, HoveryPos;
-	static TCHAR hoverbuffer[100];
+	static HOVEREVENT hoverE = {FALSE};
+
 	static TCHAR clickbuffer[100];
 
 	dados = (Dados*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
@@ -139,9 +136,10 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		break;
 
 	case WM_MOUSEMOVE:
-		if (Hover)
+		if (hoverE.isActive)
 		{
-			Hover = FALSE;
+			ShowCursor(TRUE);
+			hoverE.isActive = FALSE;
 			InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 		}
 		tme.cbSize = sizeof(TRACKMOUSEEVENT);
@@ -151,65 +149,26 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	break;
 
 	case WM_MOUSEHOVER:
-		aviaoTemp = NULL;
 		xPos = GET_X_LPARAM(lParam);
 		yPos = GET_Y_LPARAM(lParam);
-		xPosT = 0;
-		yPosT = 0;
-
-		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
-		for (i = 0; i < dados->nAvioes; i++) {
-			if (dados->Avioes[i].state == AVIAO_STATE_FLYING)
-			{
-				xPosT = translateCoord(dados->Avioes[i].Coord.x);
-				yPosT = translateCoord(dados->Avioes[i].Coord.y);
-				if (xPos >= xPosT && xPos <= xPosT + 14 && yPos >= yPosT && yPos <= yPosT + 14) {
-					aviaoTemp = &dados->Avioes[i];
-					_stprintf_s(hoverbuffer, 100, TEXT("ID: %lu\nOrigem: %s\nDestino: %s\nPassageiros: %d"),
-						aviaoTemp->PId,
-						dados->Aeroportos[FindAeroportobyCoords(dados, aviaoTemp->Origin)].Name,
-						dados->Aeroportos[FindAeroportobyCoords(dados, aviaoTemp->Dest)].Name,
-						aviaoTemp->nPassengers);
-					break;
-				}
-			}
-		}
-		ReleaseMutex(dados->hMutexAvioes);
-
 		
-		if (aviaoTemp != NULL)
+		if (HoverEvent(dados, xPos, yPos, hoverE.buffer))
 		{
-			Hover = TRUE;
-			HoverxPos = xPos;
-			HoveryPos = yPos;
+			hoverE.isActive = TRUE;
+			hoverE.coords.x = xPos;
+			hoverE.coords.y = yPos;
 			InvalidateRect(dados->gui.hWnd, NULL, FALSE);
+			ShowCursor(FALSE);
 		}
 		break;
 
 
 	case WM_LBUTTONDOWN:
-		aeroportoTemp = NULL;
 		xPos = GET_X_LPARAM(lParam);
 		yPos = GET_Y_LPARAM(lParam);
-		xPosT = 0;
-		yPosT = 0;
 
-		WaitForSingleObject(dados->hMutexAeroportos, INFINITE);
-		for (i = 0; i < dados->nAeroportos; i++) {
-			xPosT = translateCoord(dados->Aeroportos[i].Coord.x);
-			yPosT = translateCoord(dados->Aeroportos[i].Coord.y);
-			if (xPos >= xPosT && xPos <= xPosT + 14 && yPos >= yPosT && yPos <= yPosT + 14) {
-				aeroportoTemp = &dados->Aeroportos[i];
-				break;
-			}
-		}
-		ReleaseMutex(dados->hMutexAeroportos);
-
-		if (aeroportoTemp != NULL)
-		{
-			_stprintf_s(clickbuffer, 100, TEXT("Nome: %s\nAvioes: %d\nPassageiros: %d"), aeroportoTemp->Name, aeroportoTemp->nAvioes, aeroportoTemp->nPassageiros);
-			MessageBox(hWnd, clickbuffer, aeroportoTemp->Name, MB_OK | MB_ICONINFORMATION);
-		}
+		if (ClickEvent(dados, xPos, yPos, clickbuffer))
+			MessageBox(hWnd, clickbuffer, TEXT("Informação"), MB_OK | MB_ICONINFORMATION);
 		break;
 
 	case WM_PAINT:
@@ -236,12 +195,12 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			BitBlt(dados->gui.memDC, translateCoord(dados->Aeroportos[i].Coord.x), translateCoord(dados->Aeroportos[i].Coord.y), dados->gui.bmpAeroporto.bmWidth, dados->gui.bmpAeroporto.bmHeight, dados->gui.bmpDCAeroporto, 0, 0, SRCCOPY);
 		ReleaseMutex(dados->hMutexAeroportos);
 
-		if (Hover)
+		if (hoverE.isActive)
 		{
 			GetClientRect(hWnd, &rectHover);
-			rectHover.left = HoverxPos;
-			rectHover.top = HoveryPos;
-			DrawText(dados->gui.memDC, hoverbuffer, _tcslen(hoverbuffer), &rectHover, DT_NOCLIP);
+			rectHover.left = hoverE.coords.x;
+			rectHover.top = hoverE.coords.y;
+			DrawText(dados->gui.memDC, hoverE.buffer, _tcslen(hoverE.buffer), &rectHover, DT_NOCLIP);
 		}
 
 		BitBlt(hdc, rect.left, rect.top, rect.right, rect.bottom, dados->gui.memDC, 0, 0, SRCCOPY);
@@ -250,7 +209,42 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		break;
 	case WM_ERASEBKGND:
 		return TRUE;
+
+	case WM_CLOSE:
+		if (MessageBox(hWnd, TEXT("Are you sure?"), TEXT("Close"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
+			dados->terminar = TRUE;
+			WaitForSingleObject(dados->hThread, INFINITE); //TODO send termination to passageiros
+			DestroyWindow(hWnd);
+		}
+		break;
+
 	case WM_COMMAND:
+
+		switch (LOWORD(wParam))
+		{
+		case ID_CRIARAEROPORTO:
+			DialogBox(NULL, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, TrataEventosCriarAeroporto);
+			break;
+		case ID_SUSPENDERAVIOES:
+			hMenu = GetMenu(hWnd);
+			item.cbSize = sizeof(MENUITEMINFO);
+			item.fMask = MIIM_TYPE;
+			item.dwTypeData = NULL;
+			GetMenuItemInfo(hMenu, ID_SUSPENDERAVIOES, FALSE, &item);
+			if (dados->aceitarAvioes) {
+				dados->aceitarAvioes = FALSE;
+				item.dwTypeData = TEXT("Ativar aceitação de aviões");
+			}
+			else {
+				dados->aceitarAvioes = TRUE;
+				item.dwTypeData = TEXT("Suspender aceitação de aviões");
+			}
+			SetMenuItemInfo(hMenu, ID_SUSPENDERAVIOES, FALSE, &item);
+			DrawMenuBar(hWnd);
+			break;
+		case ID_LISTAGEM:
+			break;
+		}
 		break;
 
 	case WM_DESTROY:
@@ -264,6 +258,50 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	return(0);
 }
 
-int translateCoord(int coord) {
-	return coord + 1;
+LRESULT CALLBACK TrataEventosCriarAeroporto(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam)
+{
+	Dados* dados;
+	TCHAR buffer[MAX_BUFFER];
+	Aeroporto novoAeroporto;
+	dados = (Dados*)GetWindowLongPtr((HWND*)GetWindowLongPtr(hWnd, GWLP_HWNDPARENT), GWLP_USERDATA);
+
+	switch (messg)
+	{
+	case WM_COMMAND:
+
+		if (LOWORD(wParam) == IDOK)
+		{
+			GetDlgItemText(hWnd, IDC_EDIT_NOME, novoAeroporto.Name, MAX_BUFFER);
+			GetDlgItemText(hWnd, IDC_EDIT_X, buffer, 4);
+			novoAeroporto.Coord.x = _tstoi(buffer)-1;
+			GetDlgItemText(hWnd, IDC_EDIT_Y, buffer, 4);
+			novoAeroporto.Coord.y = _tstoi(buffer)-1;
+			
+			if (AddAeroporto(dados, &novoAeroporto) > -1) {
+				MessageBox(hWnd, TEXT("Aeroporto adicionado!"), TEXT("Criar novo Aeroporto"), MB_OK | MB_ICONINFORMATION);
+				EndDialog(hWnd, 0);
+			}
+			else {
+				MessageBox(hWnd, TEXT("Aeroporto invalido!"), TEXT("Criar novo Aeroporto"), MB_OK | MB_ICONERROR);
+				SetDlgItemText(hWnd, IDC_EDIT_NOME, NULL);
+				SetDlgItemText(hWnd, IDC_EDIT_X, NULL);
+				SetDlgItemText(hWnd, IDC_EDIT_Y, NULL);
+			}
+		}
+		else if (LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hWnd, 0);
+			return TRUE;
+		}
+
+		break;
+
+	case WM_CLOSE:
+
+		EndDialog(hWnd, 0);
+		return TRUE;
+	}
+
+	return FALSE;
 }
+

@@ -44,6 +44,77 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENU1 MENU
+BEGIN
+    MENUITEM "Listagem",                    ID_LISTAGEM
+    MENUITEM "Criar novo Aeroporto",        ID_CRIARAEROPORTO
+    MENUITEM "Suspender aceitação de aviões", ID_SUSPENDERAVIOES
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DIALOG1 DIALOGEX 0, 0, 157, 102
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Novo Aeroporto"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,36,77,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,98,77,50,14
+    LTEXT           "Nome:",IDC_STATIC_NOME,10,16,22,8
+    EDITTEXT        IDC_EDIT_NOME,36,13,112,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_X,36,33,112,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_EDIT_Y,36,53,112,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "X:",IDC_STATIC_X,10,36,8,8
+    LTEXT           "Y:",IDC_STATIC_y,10,56,8,8
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_DIALOG1, DIALOG
+    BEGIN
+        LEFTMARGIN, 10
+        RIGHTMARGIN, 147
+        VERTGUIDE, 10
+        VERTGUIDE, 36
+        VERTGUIDE, 148
+        TOPMARGIN, 10
+        BOTTOMMARGIN, 92
+        HORZGUIDE, 20
+        HORZGUIDE, 40
+        HORZGUIDE, 60
+        HORZGUIDE, 84
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_DIALOG1 AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
