@@ -16,7 +16,7 @@
 #define IDC_LIST_Aeroportos             1019
 #define IDC_INFO                        1020
 #define IDC_BUTTON_REFRESH              1021
-#define ID_CMD                          40001
+//#define ID_CMD                          40001
 #define ID_CRIARNOVOAEROPORTO           40002
 #define ID_SUSPENDERACEITA40003         40003
 #define ID_SUSPENDERACEITACAO           40004

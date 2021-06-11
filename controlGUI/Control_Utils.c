@@ -202,8 +202,6 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 	DadosPassag* dadosPassag;
 
 	HANDLE hPipe;
-	RequestCP req;
-	ResponseCP res;
 
 	while (!dados->terminar)
 	{

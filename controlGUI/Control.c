@@ -37,7 +37,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	HWND hWnd;
 	MSG lpMsg;
 	WNDCLASSEX wcApp;
-	HANDLE hAccel;
 
 	wcApp.cbSize = sizeof(WNDCLASSEX);
 	wcApp.hInstance = hInst;
@@ -280,7 +279,7 @@ LRESULT CALLBACK TrataEventosCriarAeroporto(HWND hWnd, UINT messg, WPARAM wParam
 	Dados* dados;
 	TCHAR buffer[MAX_BUFFER];
 	Aeroporto novoAeroporto;
-	dados = (Dados*)GetWindowLongPtr((HWND*)GetWindowLongPtr(hWnd, GWLP_HWNDPARENT), GWLP_USERDATA);
+	dados = (Dados*)GetWindowLongPtr((HWND) GetWindowLongPtr(hWnd, GWLP_HWNDPARENT), GWLP_USERDATA);
 
 	switch (messg)
 	{
@@ -335,14 +334,14 @@ LRESULT CALLBACK TrataEventosListagem(HWND hWnd, UINT messg, WPARAM wParam, LPAR
 	Dados* dados;
 	TCHAR buffer[200];
 	int i;
-	dados = (Dados*)GetWindowLongPtr((HWND*)GetWindowLongPtr(hWnd, GWLP_HWNDPARENT), GWLP_USERDATA);
+	dados = (Dados*)GetWindowLongPtr((HWND) GetWindowLongPtr(hWnd, GWLP_HWNDPARENT), GWLP_USERDATA);
 
 	switch (messg)
 	{
 	case WM_INITDIALOG: //TODO disable refresh button
 		info = GetDlgItem(hWnd, IDC_INFO);
-		refresh(dados, hWnd, NULL, NULL);
-		SendMessage(info, WM_SETTEXT, 0, NULL);
+		refresh(dados, hWnd);
+		SendMessage(info, WM_SETTEXT, 0, (LPARAM) NULL);
 		break;
 
 	case WM_COMMAND:
@@ -350,8 +349,8 @@ LRESULT CALLBACK TrataEventosListagem(HWND hWnd, UINT messg, WPARAM wParam, LPAR
 		switch (LOWORD(wParam))
 		{
 		case IDC_BUTTON_REFRESH:
-			refresh(dados, hWnd, NULL, NULL);
-			SendMessage(info, WM_SETTEXT, 0, NULL);
+			refresh(dados, hWnd);
+			SendMessage(info, WM_SETTEXT, 0, (LPARAM) NULL);
 			break;
 		case IDC_LIST_Aeroportos:
 			if (HIWORD(wParam) == LBN_SELCHANGE)
@@ -366,11 +365,11 @@ LRESULT CALLBACK TrataEventosListagem(HWND hWnd, UINT messg, WPARAM wParam, LPAR
 					else {
 						aeroporto = &dados->Aeroportos[i];
 						AeroportoToString(aeroporto, buffer, 200);
-						SendMessage(info, WM_SETTEXT, 0, buffer);
+						SendMessage(info, WM_SETTEXT, (WPARAM) 0, (LPARAM) buffer);
 					}
 				}
 				else
-					SendMessage(info, WM_SETTEXT, 0, NULL);
+					SendMessage(info, WM_SETTEXT, 0, (LPARAM) NULL);
 
 				hList = GetDlgItem(hWnd, IDC_LIST_AVIOES);
 				fillAvioes(dados, hList, aeroporto);
@@ -409,7 +408,7 @@ LRESULT CALLBACK TrataEventosListagem(HWND hWnd, UINT messg, WPARAM wParam, LPAR
 					}
 				}
 				else
-					SendMessage(info, WM_SETTEXT, 0, NULL);
+					SendMessage(info, WM_SETTEXT, 0, (LPARAM) NULL);
 
 				hList = GetDlgItem(hWnd, IDC_LIST_PASSAGEIROS);
 				fillPassageiros(dados, hList, aeroporto, aviao);

@@ -59,7 +59,7 @@ typedef struct {
 } Aviao;
 
 typedef struct {
-	TCHAR Name[30];
+	TCHAR Name[MAX_BUFFER];
 	Coords Coord;
 	int nAvioes;
 	int nPassageiros;
