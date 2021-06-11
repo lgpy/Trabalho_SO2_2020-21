@@ -154,22 +154,29 @@ void error(Dados* dados, const TCHAR* msg, int exit_code);
 BOOL HoverEvent(Dados* dados, int xPos, int yPos, TCHAR* buffer);
 BOOL ClickEvent(Dados* dados, int xPos, int yPos, TCHAR* buffer);
 int translateCoord(int coord);
+void fillAvioes(Dados* dados, HWND hList, Aeroporto* aeroporto);
+void fillPassageiros(Dados* dados, HWND hList, Aeroporto* aeroporto, Aviao* aviao);
+void fillAeroportos(Dados* dados, HWND hList);
+void refresh(Dados* dados, HWND hWnd);
 
 //AVIOES
 int FindAviaobyPId(Dados* dados, DWORD PId);
 int AddAviao(Dados* dados, AviaoOriginator* newAviao);
 void RemoveAviao(Dados* dados, int index);
+void AviaoToString(Aviao* aviao, TCHAR* buffer, const int bufferSZ);
 
 //AEROPORTOS
 int FindAeroportobyName(Dados* dados, TCHAR* name);
 int FindAeroportobyCoords(Dados* dados, Coords coords);
 int AddAeroporto(Dados* dados, Aeroporto* newAeroporto);
 int AeroportoisIsolated(Dados* dados, Coords coords);
+void AeroportoToString(Aeroporto* aeroporto, TCHAR* buffer, const int bufferSZ);
 
 //PASSAGEIROS
 int FindPassageirobyPId(Dados* dados, DWORD PId);
 int AddPassageiro(Dados* dados, HANDLE hPipe);
 void RemovePassageiro(Dados* dados, int index);
+void PassageiroToString(Passageiro* passageiro, TCHAR* buffer, const int bufferSZ);
 int Embark(Dados* dados, Aviao* aviao);
 int Disembark(Dados* dados, Aviao* aviao);
 void Crash(Dados* dados, Aviao* aviao);

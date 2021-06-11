@@ -18,6 +18,7 @@
 #define RES_DISEMBARKED 5
 #define RES_REACHEDDEST 6
 #define RES_CRASHED 7
+#define RES_TERMINATED 8
 
 typedef struct {
 	DWORD PId;

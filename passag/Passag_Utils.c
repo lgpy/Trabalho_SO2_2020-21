@@ -48,6 +48,10 @@ DWORD WINAPI ThreadResponseHandler(LPVOID param) {
 			_tprintf(TEXT("Aviao crashou\n"));
 			dados->terminar = 1;
 			break;
+		case RES_TERMINATED:
+			_tprintf(TEXT("Control Terminated\n"));
+			dados->terminar = 1;
+			break;
 		default:
 			break;
 		}

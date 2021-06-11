@@ -12,7 +12,7 @@
 - [x] click airport
 - [x] Novo Aeroporto
 - [x] Suspender/Ativar Avioes
-- [ ] Listagem
+- [x] Listagem
 
-- [ ] test Encerrar todo o sistema (todas as aplicações são notificadas). (passag!!!)
-- [ ] test seats
+- [x] test Encerrar todo o sistema (todas as aplicações são notificadas). (passag!!!)
+- [x] test seats

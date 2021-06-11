@@ -1,8 +1,8 @@
 #include "Control_Utils.h"
 
-TCHAR szProgName[] = TEXT("Ficha8");
 LRESULT CALLBACK TrataEventos(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK TrataEventosCriarAeroporto(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK TrataEventosCriarAeroporto(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK TrataEventosListagem(HWND, UINT, WPARAM, LPARAM);
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -41,6 +41,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 	wcApp.cbSize = sizeof(WNDCLASSEX);
 	wcApp.hInstance = hInst;
+
+	TCHAR szProgName[] = TEXT("Control");
 
 	wcApp.lpszClassName = szProgName;
 	wcApp.lpfnWndProc = TrataEventos;
@@ -128,6 +130,8 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 	static TCHAR clickbuffer[100];
 
+	Response res;
+
 	dados = (Dados*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
 	switch (messg)
@@ -213,7 +217,19 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	case WM_CLOSE:
 		if (MessageBox(hWnd, TEXT("Are you sure?"), TEXT("Close"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
 			dados->terminar = TRUE;
-			WaitForSingleObject(dados->hThread, INFINITE); //TODO send termination to passageiros
+			WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
+			for (i = 0; i < dados->nPassageiros; i++)
+			{
+				res.rType = RES_TERMINATED;
+				WriteFile(dados->Passageiros[i].hPipe, &res, sizeof(ResponseCP), NULL, NULL);
+			}
+			WaitForSingleObject(dados->hMutexAvioes, INFINITE);
+			for (i = 0; i < dados->nAvioes; i++) {
+				WaitForSingleObject(dados->Avioes[i].hMutexMemPar, INFINITE);
+				dados->Avioes[i].memPar->rType = RES_CONTROL_SHUTDOWN;
+				ReleaseMutex(dados->Avioes[i].hMutexMemPar);
+				SetEvent(dados->Avioes[i].hEvent);
+			}
 			DestroyWindow(hWnd);
 		}
 		break;
@@ -243,6 +259,7 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			DrawMenuBar(hWnd);
 			break;
 		case ID_LISTAGEM:
+			DialogBox(NULL, MAKEINTRESOURCE(IDD_DIALOG2), hWnd, TrataEventosListagem);
 			break;
 		}
 		break;
@@ -305,3 +322,127 @@ LRESULT CALLBACK TrataEventosCriarAeroporto(HWND hWnd, UINT messg, WPARAM wParam
 	return FALSE;
 }
 
+LRESULT CALLBACK TrataEventosListagem(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam)
+{
+
+	Aviao* aviao = NULL;
+	Aeroporto* aeroporto = NULL;
+	Passageiro* passageiro = NULL;
+
+	HWND hList;
+	static HWND info;
+
+	Dados* dados;
+	TCHAR buffer[200];
+	int i;
+	dados = (Dados*)GetWindowLongPtr((HWND*)GetWindowLongPtr(hWnd, GWLP_HWNDPARENT), GWLP_USERDATA);
+
+	switch (messg)
+	{
+	case WM_INITDIALOG: //TODO disable refresh button
+		info = GetDlgItem(hWnd, IDC_INFO);
+		refresh(dados, hWnd, NULL, NULL);
+		SendMessage(info, WM_SETTEXT, 0, NULL);
+		break;
+
+	case WM_COMMAND:
+
+		switch (LOWORD(wParam))
+		{
+		case IDC_BUTTON_REFRESH:
+			refresh(dados, hWnd, NULL, NULL);
+			SendMessage(info, WM_SETTEXT, 0, NULL);
+			break;
+		case IDC_LIST_Aeroportos:
+			if (HIWORD(wParam) == LBN_SELCHANGE)
+			{
+				hList = GetDlgItem(hWnd, IDC_LIST_Aeroportos);
+				i = (int)SendMessage(hList, LB_GETCURSEL, 0, 0);
+				SendMessage(hList, LB_GETTEXT, (WPARAM)i, (LPARAM)buffer);
+				if (_tcscmp(buffer, TEXT("")) != 0) {
+					i = FindAeroportobyName(dados, buffer);
+					if (i == -1)
+						aeroporto = NULL;
+					else {
+						aeroporto = &dados->Aeroportos[i];
+						AeroportoToString(aeroporto, buffer, 200);
+						SendMessage(info, WM_SETTEXT, 0, buffer);
+					}
+				}
+				else
+					SendMessage(info, WM_SETTEXT, 0, NULL);
+
+				hList = GetDlgItem(hWnd, IDC_LIST_AVIOES);
+				fillAvioes(dados, hList, aeroporto);
+
+				hList = GetDlgItem(hWnd, IDC_LIST_PASSAGEIROS);
+				fillPassageiros(dados, hList, aeroporto, NULL);
+			}
+			break;
+		case IDC_LIST_AVIOES:
+			if (HIWORD(wParam) == LBN_SELCHANGE)
+			{
+				hList = GetDlgItem(hWnd, IDC_LIST_Aeroportos);
+				i = (int)SendMessage(hList, LB_GETCURSEL, 0, 0);
+				SendMessage(hList, LB_GETTEXT, (WPARAM)i, (LPARAM)buffer);
+				i = FindAeroportobyName(dados, buffer);
+				if (_tcscmp(buffer, TEXT("")) != 0) {
+					i = FindAeroportobyName(dados, buffer);
+					if (i == -1)
+						aeroporto = NULL;
+					else
+						aeroporto = &dados->Aeroportos[i];
+				}
+
+				hList = GetDlgItem(hWnd, IDC_LIST_AVIOES);
+				i = (int)SendMessage(hList, LB_GETCURSEL, 0, 0);
+				SendMessage(hList, LB_GETTEXT, (WPARAM)i, (LPARAM)buffer);
+				if (_tcscmp(buffer, TEXT("")) != 0) {
+					WaitForSingleObject(dados->hMutexAvioes, INFINITE);
+					i = FindAviaobyPId(dados, _tstol(buffer));
+					if (i == -1)
+						aviao = NULL;
+					else {
+						aviao = &dados->Avioes[i];
+						AviaoToString(aviao, buffer, 200);
+						SendMessage(info, WM_SETTEXT, 0, (LPARAM)buffer);
+					}
+				}
+				else
+					SendMessage(info, WM_SETTEXT, 0, NULL);
+
+				hList = GetDlgItem(hWnd, IDC_LIST_PASSAGEIROS);
+				fillPassageiros(dados, hList, aeroporto, aviao);
+				ReleaseMutex(dados->hMutexAvioes);
+			}
+			break;
+		case IDC_LIST_PASSAGEIROS:
+			if (HIWORD(wParam) == LBN_SELCHANGE)
+			{
+				hList = GetDlgItem(hWnd, IDC_LIST_PASSAGEIROS);
+				i = (int)SendMessage(hList, LB_GETCURSEL, 0, 0);
+				SendMessage(hList, LB_GETTEXT, (WPARAM)i, (LPARAM)buffer);
+				WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
+				i = FindPassageirobyPId(dados, _tstol(buffer));
+				if (i != -1) {
+					passageiro = &dados->Passageiros[i];
+					PassageiroToString(passageiro, buffer, 200);
+					SendMessage(info, WM_SETTEXT, 0, (LPARAM)buffer);
+				}
+				ReleaseMutex(dados->hMutexPassageiros);
+			}
+			break;
+		default:
+			break;
+		}
+
+		break;
+
+	case WM_CLOSE:
+
+		EndDialog(hWnd, 0);
+		return TRUE;
+	}
+
+	return FALSE;
+}
