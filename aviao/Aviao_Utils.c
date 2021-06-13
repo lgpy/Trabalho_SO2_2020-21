@@ -51,7 +51,8 @@ void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV, D
 
 	_stprintf_s(buffer, MAX_BUFFER, Event_CA_PATTERN, dados->me.PId);
 	dados->events.hEvent_CA = CreateEvent(NULL, FALSE, FALSE, buffer); //change to auto reset?
-	if (dados->events.hEvent_CA == NULL)
+	dados->events.hEventProduced = CreateEvent(NULL, FALSE, FALSE, NULL);
+	if (dados->events.hEvent_CA == NULL || dados->events.hEventProduced == NULL)
 		error(ERR_CREATE_EVENT, EXIT_FAILURE);
 
 	//pointer stuff
@@ -69,6 +70,7 @@ void init_dados(Data* dados, DadosHB* dadosHB, DadosP* dadosP, DadosV* dadosV, D
 	dadosP->hSemLeitura = &dados->semaphores.hSemLeitura; // shared
 	dadosP->hMutexMempar = &dados->mutexes.hMutexMempar; // shared
 	dadosP->hMutexMe = &dados->mutexes.hMutexMe; // not shared
+	dadosP->hEventProduced = &dados->events.hEventProduced; // not shared
 
 	dadosV->Map = &dados->sharedmem.MemPar_AC->Map; // testing if cant make it work just go with mempar
 	dadosV->me = &dados->me;
@@ -98,6 +100,7 @@ void updatePos(DadosP* dados, int x, int y) {
 	ReleaseMutex(*dados->hMutexMe);
 	dados->rType = REQ_UPDATEPOS;
 	ReleaseSemaphore(*dados->hSemaphoreProduce, 1, NULL);
+	WaitForSingleObject(*dados->hEventProduced, INFINITE);
 }
 
 void updatePosV(DadosV* dados, int x, int y) {
@@ -116,6 +119,7 @@ void updateDes(DadosP* dados, int x, int y) {
 	ReleaseMutex(*dados->hMutexMe);
 	dados->rType = REQ_UPDATEDES;
 	ReleaseSemaphore(*dados->hSemaphoreProduce, 1, NULL);
+	WaitForSingleObject(*dados->hEventProduced, INFINITE);
 }
 
 void requestPos(DadosP* dados, HANDLE* hEvent_CA) {
@@ -124,6 +128,7 @@ void requestPos(DadosP* dados, HANDLE* hEvent_CA) {
 	_fgetts(dados->buffer, MAX_BUFFER, stdin);
 	dados->buffer[_tcslen(dados->buffer) - 1] = '\0';
 	ReleaseSemaphore(*dados->hSemaphoreProduce, 1, NULL);
+	WaitForSingleObject(*dados->hEventProduced, INFINITE);
 }
 
 void init(TCHAR* buffer, AviaoOriginator* me) {

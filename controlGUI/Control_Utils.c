@@ -841,7 +841,7 @@ void Crash(Dados* dados, Aviao* aviao) {
 				RemovePassageiro(dados, i);
 				continue;
 			}
-			RemovePassageiro(dados, i);
+			//RemovePassageiro(dados, i);
 		}
 	aviao->nPassengers = 0;
 	ReleaseMutex(dados->hMutexPassageiros);
@@ -868,6 +868,7 @@ int ReachedDest(Dados* dados, Aviao* aviao) {
 				aviao->nPassengers--;
 				continue;
 			}
+			//RemovePassageiro(dados, i);
 			count++;
 		}
 	aviao->nPassengers = 0;

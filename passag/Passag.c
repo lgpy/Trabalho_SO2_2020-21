@@ -22,10 +22,10 @@ int _tmain(int argc, LPTSTR argv[]) {
 		_fgetts(buffer, MAX_BUFFER, stdin);
 		if (_tcscmp(buffer, TEXT("fim\n")) == 0) {
 			dados.terminar = TRUE;
-			SetEvent(dados.hEvent);
 		}
 	}
 
+	SetEvent(dados.hEvent);
 	//WaitForSingleObject(dados.hRHThread, INFINITE);
 	return EXIT_SUCCESS;
 }

@@ -50,6 +50,7 @@ DWORD WINAPI ThreadP(LPVOID param) {
 
 		ReleaseMutex(*dados->hMutexMempar);
 		ReleaseSemaphore(*dados->hSemLeitura, 1, NULL); // Liberta um slot para Leitura
+		SetEvent(*dados->hEventProduced);
 	}
 	return 0;
 }
@@ -76,7 +77,7 @@ DWORD WINAPI ThreadV(LPVOID param) {
 					dados->me->Coord.x = newC.x;
 					dados->me->Coord.y = newC.y;
 					ReleaseMutex(*dados->hMutexMapa);
-					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+					//updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
 					_tprintf(TEXT("Posicao: %d %d\n"), dados->me->Coord.x, dados->me->Coord.y);
 				}
 				break;
@@ -90,7 +91,7 @@ DWORD WINAPI ThreadV(LPVOID param) {
 					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = dados->me->PId;
 					ReleaseMutex(*dados->hMutexMapa);
 					count++;
-					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+					//updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
 				}
 				else if (dados->Map[dados->me->Coord.x][newC.y] == NULL)
 				{
@@ -100,7 +101,7 @@ DWORD WINAPI ThreadV(LPVOID param) {
 					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = dados->me->PId;
 					ReleaseMutex(*dados->hMutexMapa);
 					count++;
-					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+					//updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
 				}
 				else if (dados->Map[newC.x][dados->me->Coord.y] == NULL)
 				{
@@ -110,7 +111,7 @@ DWORD WINAPI ThreadV(LPVOID param) {
 					dados->Map[dados->me->Coord.x][dados->me->Coord.y] = dados->me->PId;
 					ReleaseMutex(*dados->hMutexMapa);
 					count++;
-					updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
+					//updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
 				}
 				else {
 					ReleaseMutex(*dados->hMutexMapa);
@@ -122,6 +123,7 @@ DWORD WINAPI ThreadV(LPVOID param) {
 				_tprintf(TEXT("Erro no movimento\n"));
 			}
 		}
+		updatePosV(dados, dados->me->Coord.x, dados->me->Coord.y);
 		ReleaseMutex(*dados->hMutexMe);
 		Sleep(1000);
 	} while (res != 0 && !(*dados->terminar));
@@ -180,6 +182,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	} while (dados.sharedmem.MemPar_CA->rType != RES_AIRPORT_FOUND);
 
 	updatePos(&dadosP, dados.sharedmem.MemPar_CA->Coord.x, dados.sharedmem.MemPar_CA->Coord.y);
+	
 
 	dados.threads.hHBThread = CreateThread(NULL, 0, ThreadHB, &dadosHB, 0, NULL);
 	if (dados.threads.hHBThread == NULL)
@@ -230,12 +233,12 @@ int _tmain(int argc, LPTSTR argv[]) {
 				case 2:
 					dadosP.rType = REQ_EMBARK;
 					ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
+					WaitForSingleObject(dados.events.hEventProduced, INFINITE);
 					WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
 					WaitForSingleObject(dados.mutexes.hMutexMemPar_CA, INFINITE);
 					if (dados.sharedmem.MemPar_CA->rType == RES_EMBARKED_COUNT)
 						_tprintf(TEXT("Foram embarcados %d passageiros\n"), dados.sharedmem.MemPar_CA->count);
 					ReleaseMutex(dados.mutexes.hMutexMemPar_CA);
-					//WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE); to show how many embarked?
 					break;
 				case 3:
 					WaitForSingleObject(dados.mutexes.hMutexMe, INFINITE);
@@ -248,6 +251,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 						WaitForSingleObject(dados.threads.hVThread, INFINITE);
 						dadosP.rType = REQ_REACHEDDES;
 						ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
+						WaitForSingleObject(dados.events.hEventProduced, INFINITE);
 					}
 					else {
 						ReleaseMutex(dados.mutexes.hMutexMe);

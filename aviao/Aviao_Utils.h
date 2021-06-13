@@ -47,6 +47,7 @@ typedef struct {
 
 typedef struct {
 	HANDLE hEvent_CA; // not shared
+	HANDLE hEventProduced; // not shared
 } Events;
 
 typedef struct {
@@ -90,6 +91,7 @@ typedef struct {
 	HANDLE* hSemLeitura; // shared
 	HANDLE* hMutexMempar; // shared
 	HANDLE* hMutexMe; // not shared
+	HANDLE* hEventProduced; // not shared
 	int* terminar;
 } DadosP;
 
