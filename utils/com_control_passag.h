@@ -30,6 +30,7 @@ typedef struct {
 typedef struct {
 	int Type;
 	Coords Coord;
+	TCHAR buffer[MAX_BUFFER];
 } ResponseCP;
 
 typedef struct {

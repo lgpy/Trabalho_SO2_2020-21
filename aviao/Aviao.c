@@ -211,6 +211,8 @@ int _tmain(int argc, LPTSTR argv[]) {
 				case 1:
 					requestPos(&dadosP, &dados.events.hEvent_CA);
 					WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
+
+					WaitForSingleObject(dados.mutexes.hMutexMemPar_CA, INFINITE);
 					if (dados.sharedmem.MemPar_CA->rType == RES_AIRPORT_FOUND)
 					{
 						if (dados.sharedmem.MemPar_CA->Coord.x != dados.me.Coord.x || dados.sharedmem.MemPar_CA->Coord.y != dados.me.Coord.y)
@@ -223,10 +225,16 @@ int _tmain(int argc, LPTSTR argv[]) {
 					}
 					else
 						_tprintf(TEXT("Aeroporto Invalido\n"));
+					ReleaseMutex(dados.mutexes.hMutexMemPar_CA);
 					break;
 				case 2:
 					dadosP.rType = REQ_EMBARK;
 					ReleaseSemaphore(dados.semaphores.hSemaphoreProduce, 1, NULL);
+					WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE);
+					WaitForSingleObject(dados.mutexes.hMutexMemPar_CA, INFINITE);
+					if (dados.sharedmem.MemPar_CA->rType == RES_EMBARKED_COUNT)
+						_tprintf(TEXT("Foram embarcados %d passageiros\n"), dados.sharedmem.MemPar_CA->count);
+					ReleaseMutex(dados.mutexes.hMutexMemPar_CA);
 					//WaitForSingleObject(dados.semaphores.hSemaphoreReceive, INFINITE); to show how many embarked?
 					break;
 				case 3:

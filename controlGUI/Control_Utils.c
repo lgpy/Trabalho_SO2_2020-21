@@ -252,16 +252,18 @@ DWORD WINAPI ThreadNewPassag(LPVOID param) {
 
 //AC Handler
 void Handler(Dados* dados, CelulaBuffer* cel) {
-	int index, airportindex;
+	int index, airportindex, count;
 	switch (cel->rType)
 	{
 	case REQ_HEARTBEAT:
+		//OutputDebugString(TEXT("REQ_HEARTBEAT\n"));
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
 		dados->Avioes[index].lastHB = time(NULL);
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_AIRPORT:
+		OutputDebugString(TEXT("REQ_AIRPORT\n"));
 		airportindex = FindAeroportobyName(dados, cel->buffer);
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
@@ -291,24 +293,21 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_UPDATEPOS:
+		OutputDebugString(TEXT("REQ_UPDATEPOS\n"));
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
 
-		switch (dados->Avioes[index].state)
+		if (dados->Avioes[index].state == AVIAO_STATE_INIT)
 		{
-		case AVIAO_STATE_INIT:
 			airportindex = FindAeroportobyCoords(dados, cel->Originator.Coord);
 			dados->Aeroportos[airportindex].nAvioes++;
 			dados->Avioes[index].state = AVIAO_STATE_READY;
-			break;
-		case AVIAO_STATE_READY:
+		}
+		else if (dados->Avioes[index].state == AVIAO_STATE_READY) {
 			airportindex = FindAeroportobyCoords(dados, dados->Avioes[index].Coord);
 			CopyMemory(&dados->Avioes[index].Origin, &dados->Aeroportos[airportindex].Coord, sizeof(Coords));
 			dados->Aeroportos[airportindex].nAvioes--;
 			dados->Avioes[index].state = AVIAO_STATE_FLYING;
-			break;
-		default:
-			break;
 		}
 
 		dados->Avioes[index].Coord.x = cel->Originator.Coord.x;
@@ -318,6 +317,7 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		UpdateEmbarked(dados, dados->Avioes[index].PId, dados->Avioes[index].Coord); //TODO fix it;
 		break;
 	case REQ_UPDATEDES:
+		OutputDebugString(TEXT("REQ_UPDATEDES\n"));
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
 		dados->Avioes[index].Dest.x = cel->Originator.Dest.x;
@@ -327,6 +327,7 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_REACHEDDES:
+		OutputDebugString(TEXT("REQ_REACHEDDES\n"));
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
 		airportindex = FindAeroportobyCoords(dados, dados->Avioes[index].Coord);
@@ -337,9 +338,15 @@ void Handler(Dados* dados, CelulaBuffer* cel) {
 		ReleaseMutex(dados->hMutexAvioes);
 		break;
 	case REQ_EMBARK:
+		OutputDebugString(TEXT("REQ_EMBARK\n"));
 		WaitForSingleObject(dados->hMutexAvioes, INFINITE);
 		index = FindAviaobyPId(dados, cel->Originator.PId);
-		Embark(dados, &dados->Avioes[index]);
+		count = Embark(dados, &dados->Avioes[index]);
+		WaitForSingleObject(dados->Avioes[index].hMutexMemPar, INFINITE);
+		dados->Avioes[index].memPar->rType = RES_EMBARKED_COUNT;
+		dados->Avioes[index].memPar->count = count;
+		ReleaseMutex(dados->Avioes[index].hMutexMemPar);
+		SetEvent(dados->Avioes[index].hEvent);
 		//_tprintf(TEXT("%lu embarked %d passagers\n"), dados->Avioes[index].PId, Embark(dados, &dados->Avioes[index]));
 		ReleaseMutex(dados->hMutexAvioes);
 	default:
@@ -773,6 +780,7 @@ int Embark(Dados* dados, Aviao* aviao) {
 	int count = 0, i;
 	ResponseCP res;
 	res.Type = RES_EMBARKED;
+	_stprintf_s(res.buffer, MAX_BUFFER, TEXT("%lu"), aviao->PId);
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++) {
 		if (aviao->nPassengers >= aviao->Seats)
@@ -802,7 +810,6 @@ int Disembark(Dados* dados, Aviao* aviao) {
 	int count = 0, i;
 	ResponseCP res;
 	res.Type = RES_DISEMBARKED;
-
 	WaitForSingleObject(dados->hMutexPassageiros, INFINITE);
 	for (i = 0; i < dados->nPassageiros; i++)
 		if (dados->Passageiros[i].AviaoPId == aviao->PId)

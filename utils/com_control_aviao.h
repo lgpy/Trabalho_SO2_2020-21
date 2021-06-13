@@ -23,9 +23,11 @@
 #define RES_AIRPORT_NOTFOUND 1
 #define RES_AIRPORT_FOUND 2
 #define RES_LOCATION_UPDATED 3
+#define RES_EMBARKED_COUNT 4
 
 typedef struct {
 	int rType;
+	int count;
 	Coords Coord;
 } Response;
 

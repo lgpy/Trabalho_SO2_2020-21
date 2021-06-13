@@ -25,7 +25,7 @@ DWORD WINAPI ThreadResponseHandler(LPVOID param) {
 		switch (res.Type)
 		{
 		case RES_EMBARKED:
-			_tprintf(TEXT("Embarcou\n"));
+			_tprintf(TEXT("Embarcou aviao %s\n"), res.buffer);
 			if (dados->sec > 0)
 				CancelWaitableTimer(dados->hWTimer);
 			break;
