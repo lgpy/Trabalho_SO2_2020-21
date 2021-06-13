@@ -570,7 +570,8 @@ int AddAviao(Dados* dados, AviaoOriginator* newAviao) {
 			add = dados->nAvioes++; // ++dados->nAvioes
 			InvalidateRect(dados->gui.hWnd, NULL, FALSE);
 		}
-	}
+	}else
+		add = -1;
 	ReleaseMutex(dados->hMutexAvioes);
 	return add;
 }
