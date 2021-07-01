@@ -289,9 +289,9 @@ LRESULT CALLBACK TrataEventosCriarAeroporto(HWND hWnd, UINT messg, WPARAM wParam
 		{
 			GetDlgItemText(hWnd, IDC_EDIT_NOME, novoAeroporto.Name, MAX_BUFFER);
 			GetDlgItemText(hWnd, IDC_EDIT_X, buffer, 4);
-			novoAeroporto.Coord.x = _tstoi(buffer)-1;
+			novoAeroporto.Coord.x = _tstoi(buffer);
 			GetDlgItemText(hWnd, IDC_EDIT_Y, buffer, 4);
-			novoAeroporto.Coord.y = _tstoi(buffer)-1;
+			novoAeroporto.Coord.y = _tstoi(buffer);
 			
 			if (AddAeroporto(dados, &novoAeroporto) > -1) {
 				MessageBox(hWnd, TEXT("Aeroporto adicionado!"), TEXT("Criar novo Aeroporto"), MB_OK | MB_ICONINFORMATION);
